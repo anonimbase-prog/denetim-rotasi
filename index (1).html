@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Denetim Rotası</title>
+<meta name="theme-color" content="#15303F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Denetim Rotası">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%2315303F'/%3E%3Cpath d='M118 400 C 170 330, 240 440, 316 380' stroke='%236F98FF' stroke-width='30' fill='none' stroke-linecap='round' stroke-dasharray='0 50'/%3E%3Ccircle cx='118' cy='400' r='34' fill='%236F98FF'/%3E%3Cpath d='M340 400 C 300 336, 244 286, 244 206 A96 96 0 1 1 436 206 C 436 286 380 336 340 400Z' fill='%23F2B705'/%3E%3Cpath d='M296 206 l32 32 l60 -64' stroke='%2315303F' stroke-width='28' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#EDF1EE; --panel:#FFFFFF; --ink:#15303F; --muted:#5B6F7A; --line:#C9D3CF; --soft:#E3E9E6;
+  --route:#2756D6; --pin:#F2B705; --pinInk:#15303F; --warn:#B4441F; --ok:#2E7D4F; --approx:#8A5A00;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101B22; --panel:#17252E; --ink:#E6EEF0; --muted:#93A6AF; --line:#2B3D47; --soft:#1F313B;
+    --route:#6F98FF; --warn:#F08A63; --ok:#3FA56A; --approx:#E8B84A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101B22; --panel:#17252E; --ink:#E6EEF0; --muted:#93A6AF; --line:#2B3D47; --soft:#1F313B;
+  --route:#6F98FF; --warn:#F08A63; --ok:#3FA56A; --approx:#E8B84A;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.5}
+main{max-width:760px;margin:0 auto;padding:16px 14px calc(96px + env(safe-area-inset-bottom,0px))}
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:4px 2px 12px}
+header.top .brand{display:flex;align-items:center;gap:10px}
+header.top .brand svg{width:34px;height:34px;border-radius:9px;background:none;flex:none}
+header.top h1{font-stretch:75%;font-weight:800;font-size:1.7rem;white-space:nowrap;line-height:1;margin:0}
+h2{font-stretch:85%;font-weight:700;font-size:1.3rem;margin:0}
+h3{font-stretch:85%;font-weight:700;font-size:1.05rem;margin:16px 0 6px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.hint{color:var(--muted);font-size:.9rem}
+p.hint{margin:6px 0 10px}
+label.field{display:block;font-weight:600;margin:12px 0 6px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;display:block}
+.drop strong{font-size:1.1rem}
+.drop:hover,.drop.on{border-color:var(--route)}
+.drop input{display:none}
+textarea,input[type=text],input[type=number],input[type=search],select{width:100%;font:inherit;color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{min-height:90px;resize:vertical;font-size:.92rem}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+button,.btn{font:inherit;font-weight:700;border:0;border-radius:10px;padding:11px 15px;cursor:pointer;
+  background:var(--ink);color:var(--panel);text-decoration:none;display:inline-block;text-align:center}
+button.ghost,.btn.ghostbtn{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button.big{background:var(--route);color:#fff;font-size:1.05rem;width:100%;padding:15px}
+button.small{padding:7px 11px;font-size:.88rem}
+button.linkish{background:none;color:var(--ink);font-weight:400;padding:0;text-align:left}
+button:disabled{opacity:.4;cursor:default}
+.btn.maps{background:var(--route);color:#fff;padding:16px;font-size:1.1rem;display:block}
+.okbtn{background:var(--ok);color:#fff;font-size:1.05rem;padding:14px}
+button:focus-visible,.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--pin);outline-offset:2px}
+label.chk{display:flex;gap:10px;align-items:center;margin:8px 0}
+label.chk input{width:20px;height:20px}
+.counts{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.counts button{background:var(--soft);color:var(--ink);font-weight:600;padding:7px 11px;font-size:.9rem}
+.counts button.on{background:var(--ink);color:var(--panel)}
+.counts button i{font-style:normal;font-weight:800;margin-left:6px}
+.chip{display:inline-block;font-size:.75rem;font-weight:700;border-radius:999px;padding:1px 8px;border:1px solid currentColor;white-space:nowrap}
+.c-exact{color:var(--ok)} .c-approx{color:var(--approx)} .c-none{color:var(--warn)}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;padding:11px 0;border-bottom:1px solid var(--line);align-items:start}
+.item .tick input{width:22px;height:22px;margin:2px 0 0;accent-color:var(--ok)}
+.item .nm{font-weight:600}
+.item .ad{color:var(--muted);font-size:.86rem}
+.item .meta{display:flex;gap:10px;align-items:center;margin-top:3px}
+.item .fix{grid-column:2/-1;display:flex;gap:6px}
+.item .fix input{padding:8px 9px}
+.item a{color:var(--route);font-size:.85rem}
+.item.done .nm{text-decoration:line-through;color:var(--muted)}
+.x{background:none;border:0;color:var(--muted);padding:2px 8px;font-size:1.3rem}
+.warn{color:var(--warn)} .ok{color:var(--ok)}
+svg{width:100%;height:auto;display:block;background:var(--bg);border-radius:10px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 12px}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stats div{background:var(--soft);border-radius:10px;padding:8px 10px}
+.stats div span{display:block;font-stretch:75%;font-weight:800;font-size:1.6rem;line-height:1.1}
+.stats div small{color:var(--muted)}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:thin}
+.tab{flex:none;background:var(--soft);color:var(--ink);font-weight:700;padding:8px 12px;border-bottom:3px solid var(--c,transparent)}
+.tab.on{background:var(--ink);color:var(--panel)}
+ol.route{padding:0;margin:0;list-style:none}
+ol.route li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+ol.route li .d{margin-left:auto;color:var(--muted);font-size:.85rem;white-space:nowrap}
+ol.route li .t{flex:1}
+ol.route li small{color:var(--muted);display:block}
+ol.route li.done .t{text-decoration:line-through;color:var(--muted)}
+ol.route li input[type=checkbox]{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--ok)}
+.num{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:50%;background:var(--pin);color:var(--pinInk);font-weight:800;font-size:.8rem;flex:none}
+.num.ap{background:var(--panel);color:var(--approx);border:2px dashed var(--approx)}
+.num.okn{background:var(--ok);color:#fff}
+.links{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.daysum{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.daysum .sw{width:14px;height:14px;border-radius:4px}
+.note{background:var(--soft);border-radius:10px;padding:10px 12px;font-size:.9rem;margin:10px 0}
+.note p{margin:0 0 6px}
+.dayhead{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;text-align:center}
+.dayhead button{font-size:1.4rem;line-height:1;padding:6px 14px}
+.bar{height:10px;background:var(--soft);border-radius:99px;overflow:hidden;margin:12px 0}
+.bar span{display:block;height:100%;background:var(--ok);border-radius:99px}
+.card{border:2px solid var(--ink);border-radius:14px;padding:16px;margin:6px 0 4px;display:flex;flex-direction:column;gap:8px}
+.card.center{text-align:center;align-items:stretch}
+.card h3.cur{font-stretch:80%;font-size:1.6rem;line-height:1.15;margin:2px 0 0}
+.card .addr{margin:0;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.empty{text-align:center;padding:26px 8px}
+summary{padding:6px 0}
+nav#nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
+nav#nav button{background:none;color:var(--muted);font-weight:700;font-size:.8rem;padding:8px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav#nav button svg{width:22px;height:22px;background:none;border-radius:0}
+nav#nav button.on{color:var(--ink);background:var(--soft)}
+nav#nav b{font-size:.7rem;background:var(--pin);color:var(--pinInk);border-radius:99px;padding:0 6px;min-width:18px}
+nav#nav b:empty{display:none}
+nav#nav .lbl{display:flex;gap:4px;align-items:center}
+.modal{position:fixed;inset:0;background:rgba(10,20,26,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20;padding:16px 12px calc(16px + env(safe-area-inset-bottom,0px))}
+.modal[hidden]{display:none}
+.sheet{background:var(--panel);border-radius:18px;padding:20px;max-width:480px;width:100%;display:flex;flex-direction:column;gap:10px}
+.sheet h2{font-size:1.5rem}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;z-index:30}
+#toast.on{opacity:1}
+#sync{color:var(--muted);font-size:.8rem}
+.dist{display:flex;gap:14px;flex-wrap:wrap;font-size:.92rem;color:var(--muted)}
+.dist strong{color:var(--ink);font-size:1.05rem}
+.alt{font-size:.88rem;text-align:center}
+.alt a{color:var(--route)}
+/* splash + intro */
+#splash{position:fixed;inset:0;z-index:50;background:#0B1C24;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .45s}
+#splash.out{opacity:0;pointer-events:none}
+#splash svg{width:132px;height:132px;background:none;border-radius:30px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+#splash h1{font-stretch:75%;font-weight:800;font-size:2.6rem;margin:0;line-height:1;letter-spacing:-.01em}
+#splash p{margin:0;color:#B9CBD4;font-size:1.05rem}
+#splash .route{stroke-dasharray:0 50;animation:dots 1.1s ease-out both}
+#splash .pin{transform-origin:340px 400px;animation:drop .7s .35s cubic-bezier(.3,1.5,.5,1) both}
+#splash .chk{stroke-dasharray:140;stroke-dashoffset:140;animation:draw .45s 1s ease-out forwards}
+#splash .txt{animation:fade .6s .5s both}
+@keyframes dots{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+@keyframes drop{from{transform:translateY(-120px) scale(.6);opacity:0}to{transform:none;opacity:1}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#intro{position:fixed;inset:0;z-index:40;background:var(--bg);overflow:auto;padding:calc(24px + env(safe-area-inset-top,0px)) 18px calc(24px + env(safe-area-inset-bottom,0px))}
+#intro[hidden]{display:none}
+#intro .wrap{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+#intro h2{font-stretch:75%;font-weight:800;font-size:2.2rem;line-height:1.05;margin:6px 0 0}
+#intro .lead{color:var(--muted);margin:0}
+#intro ol{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:10px}
+#intro li{display:grid;grid-template-columns:44px 1fr;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+#intro li .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--soft)}
+#intro li .ic svg{width:24px;height:24px;background:none}
+#intro li strong{display:block}
+#intro li span{color:var(--muted);font-size:.92rem}
+.lmap{height:340px;border-radius:10px;isolation:isolate;position:relative;z-index:0;background:var(--soft)}
+.nm-ic span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#F2B705;color:#15303F;font:800 11px Archivo,system-ui,sans-serif;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.nm-ic.ap span{background:#fff;color:#8A5A00;border:2px dashed #8A5A00}
+.nm-ic.done span{background:#2E7D4F;color:#fff}
+.nm-ic.base span{background:#15303F;color:#fff;border-radius:6px}
+.pin span{display:block;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#2756D6;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.addbox{background:var(--soft);border-radius:12px;padding:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.addbox label{font-weight:700}
+.sheet{max-height:92vh;overflow:auto}
+.or{text-align:center;color:var(--muted);font-size:.9rem;margin:14px 0 4px}
+@media (prefers-reduced-motion:reduce){#toast,#splash{transition:none}#splash *{animation:none!important;stroke-dashoffset:0!important}}
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><div class="brand"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#15303F"/><path d="M118 400 C 170 330, 240 440, 316 380" stroke="#6F98FF" stroke-width="30" fill="none" stroke-linecap="round" stroke-dasharray="0 50"/><circle cx="118" cy="400" r="34" fill="#6F98FF"/><path d="M340 400 C 300 336, 244 286, 244 206 A96 96 0 1 1 436 206 C 436 286 380 336 340 400Z" fill="#F2B705"/><path d="M296 206 l32 32 l60 -64" stroke="#15303F" stroke-width="28" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><h1>Denetim Rotası</h1></div></header>
+
+  <!-- SÜRÜŞ -->
+  <div class="view" id="v-drive">
+    <section id="driveBody"></section>
+  </div>
+
+  <!-- PLAN -->
+  <div class="view" id="v-plan" hidden>
+    <section>
+      <h2>Rotayı hesapla</h2>
+      <label class="field" for="start">Her gün nereden yola çıkıyorsun?</label>
+      <select id="start">
+        <option value="me">Bulunduğum yerden</option>
+        <option value="custom">Sabit bir adresten (ofis / ev)</option>
+        <option value="first">Listedeki ilk noktadan</option>
+      </select>
+      <div id="customWrap" hidden>
+        <input type="text" id="custom" placeholder="Ofisin Google Maps linki veya 41.01, 28.97" style="margin-top:8px">
+      </div>
+      <label class="field" for="perDay">Bir günde kaç durağa gidiyorsun?</label>
+      <input type="number" id="perDay" min="0" max="200" value="20" inputmode="numeric">
+      <p class="hint" style="margin-top:4px">Noktalar bu sayıya göre yakın gruplara ayrılır. 0 yazarsan hepsi tek rota olur.</p>
+      <label class="field" for="mapApp">Yol tarifi hangi uygulamada açılsın?</label>
+      <select id="mapApp"><option value="apple">Apple Haritalar</option><option value="google">Google Maps</option></select>
+      <label class="chk"><input type="checkbox" id="round" checked> Gün sonunda başladığım yere dönüyorum</label>
+      <details>
+        <summary class="hint" style="cursor:pointer">Diğer ayarlar</summary>
+        <label class="chk"><input type="checkbox" id="skipDone" checked> Tamamlanan durakları yeni plana katma</label>
+        <label class="field" for="chunk">Google Maps'te tek seferde açılacak durak</label>
+        <select id="chunk"><option value="10">10 (uygulama)</option><option value="4">4 (tarayıcı)</option></select>
+      </details>
+      <div class="row"><button class="big" id="calc">Rotayı hesapla</button></div>
+      <p class="hint" id="calcMsg"></p>
+    </section>
+    <section id="planOut" hidden>
+      <div class="stats" id="stats"></div>
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div id="lmap" class="lmap" hidden></div>
+      <svg id="plot" viewBox="0 0 600 380" role="img" aria-label="Rota çizimi"></svg>
+      <div id="dayBody"></div>
+      <div class="row"><button class="ghost" id="export" hidden>Planı Excel olarak indir</button></div>
+      <p class="hint">Mesafeler kuş uçuşudur; gerçek yol ve trafik Google Maps'te hesaplanır.</p>
+    </section>
+  </div>
+
+  <!-- NOKTALAR -->
+  <div class="view" id="v-points" hidden>
+    <section>
+      <h2>Noktalar</h2>
+      <p class="hint" id="emptyPts">Gideceğin yerlerin listesini yükle. Ad, adres, mahalle, ilçe, il, enlem/boylam veya Google Maps linki sütunları tanınır; hepsi gerekmez.</p>
+      <div class="addbox">
+        <label for="newAddr">Adres yaz, haritada işaretleyeyim</label>
+        <input type="text" id="newName" placeholder="İşletme adı (isteğe bağlı)">
+        <textarea id="newAddr" rows="2" style="min-height:64px" placeholder="İstasyon Mah. Koray Sok. Deniz Apt. No:7-9 Çerkezköy/Tekirdağ"></textarea>
+        <button class="big" id="findAddr">Haritada bul</button>
+      </div>
+      <p class="or">veya listenin tamamını Excel'den yükle</p>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".xlsx,.xls,.csv">
+        <strong>Excel dosyası seç</strong><br><span class="hint">.xlsx, .xls veya .csv</span>
+      </label>
+      <details style="margin-top:10px">
+        <summary class="hint" style="cursor:pointer">Elle ekle veya yapıştır</summary>
+        <p class="hint">Her satıra bir yer: isim + koordinat, Google Maps linki ya da açık adres.</p>
+        <textarea id="paste" placeholder="Kadıköy Şube 40.9903, 29.0290&#10;Yıldız Kırtasiye - Caferağa Mah. Moda Cad. No:12 Kadıköy/İstanbul"></textarea>
+        <div class="row"><button id="addPaste">Listeye ekle</button></div>
+      </details>
+      <div class="row">
+        <button class="ghost small" id="sample">Örnek veriyle dene</button>
+        <button class="ghost small" id="clear">Listeyi temizle</button>
+      </div>
+      <div id="geoBar"></div>
+      <div id="counts" class="counts"></div>
+      <div id="approxNote"></div>
+      <input type="search" id="q" placeholder="Listede ara" style="margin-top:8px" hidden>
+      <div id="list"></div>
+      <div class="row" id="moreRow" hidden><button class="ghost" id="more">Daha fazla göster</button></div>
+    </section>
+  </div>
+
+  <!-- TAMAMLANAN -->
+  <div class="view" id="v-done" hidden>
+    <section><h2>Tamamlanan duraklar</h2><div id="doneBody"></div></section>
+  </div>
+  <p id="sync" style="text-align:center;margin:14px 0 0">Kayıt: bu cihaz</p>
+</main>
+
+<nav id="nav" aria-label="Bölümler">
+  <button data-v="drive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"/></svg><span class="lbl">Sürüş</span></button>
+  <button data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"/></svg><span class="lbl">Plan</span></button>
+  <button data-v="points"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="lbl">Noktalar <b id="navPts"></b></span></button>
+  <button data-v="done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span class="lbl">Tamamlanan <b id="navDone"></b></span></button>
+</nav>
+
+<div class="modal" id="ask" hidden role="dialog" aria-modal="true" aria-labelledby="askName">
+  <div class="sheet">
+    <p class="hint" style="margin:0">Bu durak tamamlandı mı?</p>
+    <h2 id="askName"></h2>
+    <p class="hint" id="askAddr" style="margin:0"></p>
+    <button class="okbtn" id="askYes">✓ Evet, tamamlandı</button>
+    <button class="ghost" id="askNo">Hayır, henüz bitmedi</button>
+    <button class="ghost" id="askSkip">Sonraya bırak</button>
+  </div>
+</div>
+<div class="modal" id="ed" hidden role="dialog" aria-modal="true" aria-labelledby="edT">
+  <div class="sheet">
+    <h2 id="edT">Konumu onayla</h2>
+    <p class="hint" id="edMsg" style="margin:0"></p>
+    <div id="edMap" class="lmap" style="height:320px"></div>
+    <p class="hint" style="margin:0">Yanlışsa mavi işaretçiyi sürükle ya da haritada doğru yere dokun.</p>
+    <button class="okbtn" id="edSave">Bu konumu kaydet</button>
+    <button class="ghost" id="edCancel">Vazgeç</button>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+<div id="splash" aria-hidden="true"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#15303F"/><path class="route" d="M118 400 C 170 330, 240 440, 316 380" stroke="#6F98FF" stroke-width="30" fill="none" stroke-linecap="round" stroke-dasharray="0 50"/><circle class="route" cx="118" cy="400" r="34" fill="#6F98FF"/><path class="pin" d="M340 400 C 300 336, 244 286, 244 206 A96 96 0 1 1 436 206 C 436 286 380 336 340 400Z" fill="#F2B705"/><path class="chk" d="M296 206 l32 32 l60 -64" stroke="#15303F" stroke-width="28" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="txt" style="text-align:center"><h1>Denetim Rotası</h1><p>Yakın duraklar, kısa yollar</p></div></div>
+<div id="intro" hidden role="dialog" aria-modal="true" aria-labelledby="introT">
+  <div class="wrap">
+    <div style="width:64px;height:64px"><svg style="width:64px;height:64px;border-radius:16px" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#15303F"/><path d="M118 400 C 170 330, 240 440, 316 380" stroke="#6F98FF" stroke-width="30" fill="none" stroke-linecap="round" stroke-dasharray="0 50"/><circle cx="118" cy="400" r="34" fill="#6F98FF"/><path d="M340 400 C 300 336, 244 286, 244 206 A96 96 0 1 1 436 206 C 436 286 380 336 340 400Z" fill="#F2B705"/><path d="M296 206 l32 32 l60 -64" stroke="#15303F" stroke-width="28" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h2 id="introT">Denetim günün, en kısa yoldan.</h2>
+    <p class="lead">Gideceğin yerleri yükle; birbirine yakın olanları aynı güne koyar, her durağı en yakın sıradakine bağlar.</p>
+    <ol>
+      <li><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div><div><strong>Listeni yükle</strong><span>Excel'deki adresler okunur. Haritada işletme olarak görünmeyen yerler de adresinden bulunur.</span></div></li>
+      <li><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"/></svg></div><div><strong>Günlere bölünür</strong><span>Yakın yerler aynı güne düşer, sıra toplam yolu en kısa tutacak şekilde dizilir.</span></div></li>
+      <li><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"/></svg></div><div><strong>Durak durak ilerle</strong><span>Apple Haritalar veya Google Maps ile git. İşin bitince "tamamlandı" de, sıradaki en yakın durak gelsin.</span></div></li>
+    </ol>
+    <button class="big" id="introGo">Başla</button>
+  </div>
+</div>
+
+<script>
+(function(){
+// ================= reference data =================
+const IST={adalar:[40.876,29.091],arnavutkoy:[41.185,28.740],atasehir:[40.984,29.107],avcilar:[40.979,28.721],bagcilar:[41.039,28.856],
+bahcelievler:[41.000,28.861],bakirkoy:[40.980,28.872],basaksehir:[41.093,28.802],bayrampasa:[41.047,28.900],besiktas:[41.043,29.007],
+beykoz:[41.134,29.092],beylikduzu:[40.982,28.640],beyoglu:[41.037,28.977],buyukcekmece:[41.021,28.585],catalca:[41.143,28.461],
+cekmekoy:[41.035,29.177],esenler:[41.043,28.876],esenyurt:[41.034,28.680],eyupsultan:[41.048,28.934],eyup:[41.048,28.934],fatih:[41.019,28.940],
+gaziosmanpasa:[41.064,28.912],gungoren:[41.021,28.876],kadikoy:[40.990,29.029],kagithane:[41.081,28.973],kartal:[40.890,29.190],
+kucukcekmece:[41.000,28.780],maltepe:[40.935,29.130],pendik:[40.877,29.235],sancaktepe:[41.000,29.230],sariyer:[41.167,29.050],
+silivri:[41.074,28.247],sultanbeyli:[40.965,29.267],sultangazi:[41.106,28.867],sile:[41.176,29.613],sisli:[41.060,28.987],
+tuzla:[40.816,29.300],umraniye:[41.025,29.096],uskudar:[41.023,29.015],zeytinburnu:[40.994,28.904]};
+const SAM={alacam:[41.61,35.60],asarcik:[41.04,36.23],atakum:[41.33,36.27],ayvacik:[41.00,36.63],bafra:[41.57,35.91],canik:[41.26,36.36],
+carsamba:[41.20,36.72],havza:[40.97,35.66],ilkadim:[41.29,36.33],kavak:[41.08,36.05],ladik:[40.91,35.90],ondokuzmayis:[41.50,36.07],
+salipazari:[41.08,36.83],tekkekoy:[41.21,36.46],terme:[41.21,36.97],vezirkopru:[41.14,35.45],yakakent:[41.63,35.53]};
+const ILCE={istanbul:IST,samsun:SAM};
+const IL={adana:[37.00,35.32],adiyaman:[37.76,38.28],afyonkarahisar:[38.76,30.54],afyon:[38.76,30.54],agri:[39.72,43.05],amasya:[40.65,35.83],
+ankara:[39.93,32.85],antalya:[36.89,30.71],artvin:[41.18,41.82],aydin:[37.85,27.85],balikesir:[39.65,27.89],bilecik:[40.14,29.98],bingol:[38.88,40.50],
+bitlis:[38.40,42.11],bolu:[40.74,31.61],burdur:[37.72,30.29],bursa:[40.19,29.06],canakkale:[40.15,26.41],cankiri:[40.60,33.62],corum:[40.55,34.95],
+denizli:[37.78,29.09],diyarbakir:[37.91,40.24],edirne:[41.68,26.56],elazig:[38.67,39.22],erzincan:[39.75,39.49],erzurum:[39.90,41.27],
+eskisehir:[39.78,30.52],gaziantep:[37.07,37.38],antep:[37.07,37.38],giresun:[40.91,38.39],gumushane:[40.46,39.48],hakkari:[37.58,43.74],
+hatay:[36.20,36.16],antakya:[36.20,36.16],isparta:[37.76,30.55],mersin:[36.80,34.63],istanbul:[41.01,28.98],izmir:[38.42,27.14],kars:[40.60,43.10],
+kastamonu:[41.38,33.78],kayseri:[38.72,35.49],kirklareli:[41.73,27.22],kirsehir:[39.15,34.17],kocaeli:[40.77,29.92],izmit:[40.77,29.92],
+konya:[37.87,32.48],kutahya:[39.42,29.98],malatya:[38.35,38.31],manisa:[38.61,27.43],kahramanmaras:[37.58,36.94],maras:[37.58,36.94],
+mardin:[37.31,40.74],mugla:[37.22,28.36],mus:[38.74,41.49],nevsehir:[38.62,34.71],nigde:[37.97,34.68],ordu:[40.98,37.88],rize:[41.02,40.52],
+sakarya:[40.78,30.40],adapazari:[40.78,30.40],samsun:[41.29,36.33],siirt:[37.93,41.94],sinop:[42.03,35.15],sivas:[39.75,37.02],
+tekirdag:[40.98,27.51],tokat:[40.31,36.55],trabzon:[41.00,39.72],tunceli:[39.11,39.55],sanliurfa:[37.16,38.79],urfa:[37.16,38.79],
+usak:[38.68,29.41],van:[38.49,43.38],yozgat:[39.82,34.81],zonguldak:[41.45,31.79],aksaray:[38.37,34.03],bayburt:[40.26,40.23],
+karaman:[37.18,33.22],kirikkale:[39.85,33.51],batman:[37.88,41.13],sirnak:[37.52,42.46],bartin:[41.64,32.34],ardahan:[41.11,42.70],
+igdir:[39.92,44.04],yalova:[40.66,29.27],karabuk:[41.20,32.62],kilis:[36.72,37.12],osmaniye:[37.07,36.25],duzce:[40.84,31.16]};
+const IL_ALIAS={afyon:'afyonkarahisar',antep:'gaziantep',antakya:'hatay',izmit:'kocaeli',maras:'kahramanmaras',adapazari:'sakarya',urfa:'sanliurfa',eyup:'eyupsultan'};
+const DAYC=['#2756D6','#D9480F','#2E8B57','#8E44AD','#C2185B','#00838F','#B8860B','#5D4037'];
+const GL={bina:'Bina bulundu',sokak:'Sokak bulundu',mah:'Mahalle (onaylı)',ilce:'İlçe (onaylı)',il:'İl (onaylı)',elle:'Haritada işaretli'};
+const PREC={exact:'Kesin',mah:'≈ Mahalle',ilce:'≈ İlçe',il:'≈ İl',none:'Konumsuz'};
+
+// ================= state =================
+const KEY='denetim-rota-v2';
+const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let state={stops:[],settings:{start:'me',custom:'',perDay:20,round:true,skipDone:true,chunk:10,mapApp:IS_IOS?'apple':'google'},plan:null,uid:1,updated:0,activeDay:0,pendingAsk:null,lastPos:null};
+let filter='all',shown=60,curDay=0;
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),2600)}
+const TR=s=>String(s??'').replace(/İ/g,'i').replace(/I/g,'ı').toLowerCase().replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/â/g,'a').replace(/î/g,'i').replace(/û/g,'u');
+const normSp=s=>TR(s).replace(/[^a-z0-9]+/g,' ').trim();
+const norm=s=>normSp(s).replace(/ /g,'');
+
+// ================= persistence (device + account sync) =================
+let dbDoc=null,dbBusy=false,dbAgain=false,saveT=null;
+function save(){
+  state.updated=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+  clearTimeout(saveT);saveT=setTimeout(pushDb,900);
+}
+async function pushDb(){
+  if(!dbDoc)return;
+  if(dbBusy){dbAgain=true;return}
+  dbBusy=true;
+  try{const json=JSON.stringify(state);
+    if(json.length>240000){$('#sync').textContent='Kayıt: bu cihaz (liste hesap senkronu için çok büyük)'}
+    else{await dbDoc.set({json,updated:state.updated});$('#sync').textContent='Kayıt: hesabın — telefonda ve bilgisayarda aynı liste'}}
+  catch(e){$('#sync').textContent='Kayıt: bu cihaz (hesaba kaydedilemedi)'}
+  dbBusy=false;if(dbAgain){dbAgain=false;pushDb()}
+}
+function loadLocal(){try{const d=JSON.parse(localStorage.getItem(KEY)||'null');if(d&&d.stops)state=Object.assign(state,d,{settings:Object.assign(state.settings,d.settings||{})})}catch(e){}}
+async function initDb(){
+  try{
+    if(!window.claude||typeof window.claude.use!=='function')return;
+    const [db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')]);
+    if(!db||!user)return;
+    const id=await user.id();if(!id)return;
+    dbDoc=db.doc('data/users/'+id+'/rota');
+    const snap=await dbDoc.get();
+    if(snap.exists){const d=snap.data();
+      if(d&&d.updated>(state.updated||0)){const r=JSON.parse(d.json);state=Object.assign(state,r,{settings:Object.assign(state.settings,r.settings||{})});
+        try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}renderAll();toast('Kayıtlı plan yüklendi')}}
+    $('#sync').textContent='Kayıt: hesabın — telefonda ve bilgisayarda aynı liste';
+    if(state.stops.length&&(!snap.exists||(snap.data()||{}).updated<state.updated))pushDb();
+  }catch(e){}
+}
+
+// ================= coordinate & address parsing =================
+const valid=(a,b)=>isFinite(a)&&isFinite(b)&&Math.abs(a)<=90&&Math.abs(b)<=180&&!(a===0&&b===0);
+function num(v){if(typeof v==='number')return v;const s=String(v??'').trim().replace(/\s/g,'').replace(',','.');return s===''?NaN:Number(s)}
+function findCoords(text){
+  const s=String(text||'');
+  const pats=[/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,/@(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /[?&](?:q|query|ll|destination|daddr|center)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/i,
+    /(-?\d{1,2}\.\d{3,})\s*[,;\s]\s*(-?\d{1,3}\.\d{3,})/,/(-?\d{1,2},\d{3,})\s*[;\s]\s*(-?\d{1,3},\d{3,})/];
+  for(const p of pats){const m=s.match(p);if(m){const a=num(m[1]),b=num(m[2]);if(valid(a,b))return{lat:a,lng:b,match:m[0]}}}
+  return null;
+}
+function lastHitI(text,dict){const w=' '+normSp(text)+' ';let best='',bi=-1;
+  for(const k in dict){const i=w.lastIndexOf(' '+k+' ');if(i>bi){bi=i;best=k}}return{k:IL_ALIAS[best]||best,i:bi}}
+function lastHit(text,dict){return lastHitI(text,dict).k}
+function mahOf(text){
+  const w=normSp(text).split(' ');let k=w.findIndex(x=>['mah','mahallesi','mh','mahalle','mahalesi'].includes(x));
+  if(k<1)return'';
+  const stop=new Set(['cad','cd','caddesi','sok','sk','sokak','sokagi','no','blv','bulvari','apt','kat','d','daire','yolu']);
+  const out=[];for(let i=k-1;i>=0&&out.length<2;i--){if(stop.has(w[i])||/^\d+$/.test(w[i]))break;out.unshift(w[i])}
+  return out.join(' ');
+}
+const AREA_STOP=new Set(['mah','mahallesi','mh','mahalle','sok','sokak','sokagi','sk','cad','cadde','caddesi','cd','bulvar','bulvari','blv','yolu','no','apt','apartmani','apartman','daire','kat','blok','sitesi','site','is','merkezi','plaza','turkiye']);
+function areaOf(s){ // fill s.il, s.ilce, s.mah from explicit fields or address text
+  const txt=s.addr||'';
+  let il=s.il?(IL_ALIAS[norm(s.il)]||norm(s.il)):'';
+  let ilce=s.ilce?(IL_ALIAS[norm(s.ilce)]||norm(s.ilce)):'';
+  if(!ilce){let bi=-1;for(const p in ILCE){if(il&&il!==p)continue;const h=lastHitI(txt,ILCE[p]);if(h.k&&h.i>bi){bi=h.i;ilce=h.k;if(!s.il)il=p}}}
+  else if(!il){for(const p in ILCE)if(ILCE[p][ilce]){il=p;break}}
+  if(!il)il=lastHit(txt,IL);
+  if(!ilce&&il){const w=normSp(txt).split(' '),k=w.lastIndexOf(il),pw=k>0?w[k-1]:'';
+    if(pw&&pw.length>2&&!AREA_STOP.has(pw)&&!/^\d/.test(pw)&&!IL[pw])ilce=pw}
+  let mah=s.mah?normSp(s.mah).replace(/\b(mahallesi|mah|mh|mahalle)\b/g,'').trim():mahOf(txt);
+  s.il=il;s.ilce=ilce;s.mah=mah;
+}
+function addStop(o){
+  const s={id:state.uid++,name:(o.name||'').trim(),addr:(o.addr||'').trim(),il:o.il||'',ilce:o.ilce||'',mah:o.mah||'',
+    lat:o.lat??null,lng:o.lng??null,prec:o.lat!=null?'exact':'none',done:false};
+  if(!s.name)s.name=s.addr.split(/[,/]/)[0].slice(0,60)||('Nokta '+state.stops.length);
+  areaOf(s);
+  const key=norm(s.name)+'|'+norm(s.addr)+'|'+(s.lat!=null?s.lat.toFixed(4)+','+s.lng.toFixed(4):'');
+  if(state.stops.some(x=>norm(x.name)+'|'+norm(x.addr)+'|'+(x.prec==='exact'?x.lat.toFixed(4)+','+x.lng.toFixed(4):'')===key)){state.uid--;return false}
+  state.stops.push(s);return true;
+}
+
+// approximate positions for stops without coordinates
+const RANK={bina:0,sokak:1,mah:2,ilce:3,il:4,none:5};
+function resolveApprox(){
+  const acc=(m,k,s)=>{if(!k)return;const a=m[k]||(m[k]={la:0,ln:0,n:0,ilces:new Set()});a.la+=s.lat;a.ln+=s.lng;a.n++;a.ilces.add(s.ilce)};
+  const mahI={},mah={},ilce={},il={};
+  for(const s of state.stops)if(s.prec==='exact'){
+    if(s.mah){acc(mahI,s.mah+'|'+s.ilce,s);acc(mah,s.mah,s)}
+    if(s.ilce)acc(ilce,s.ilce+'|'+s.il,s);
+    if(s.il)acc(il,s.il,s);
+  }
+  const avg=a=>[a.la/a.n,a.ln/a.n];
+  for(const s of state.stops){
+    if(s.prec==='exact')continue;
+    let p=null,pr='none';
+    if(s.mah&&s.ilce&&mahI[s.mah+'|'+s.ilce]){p=avg(mahI[s.mah+'|'+s.ilce]);pr='mah'}
+    else if(s.mah&&!s.ilce&&mah[s.mah]&&mah[s.mah].ilces.size<=1){p=avg(mah[s.mah]);pr='mah'}
+    else if(s.ilce&&ilce[s.ilce+'|'+s.il]&&ilce[s.ilce+'|'+s.il].n>=2){p=avg(ilce[s.ilce+'|'+s.il]);pr='ilce'}
+    else if(s.ilce&&ILCE[s.il]&&ILCE[s.il][s.ilce]){p=ILCE[s.il][s.ilce];pr='ilce'}
+    else if(s.il&&il[s.il]&&il[s.il].n>=2){p=avg(il[s.il]);pr='il'}
+    else if(s.il&&IL[s.il]){p=IL[s.il];pr='il'}
+    if(s.gm&&RANK[s.gm.lvl]<=RANK[pr]){p=[s.gm.lat,s.gm.lng];pr=s.gm.lvl}
+    s.prec=pr;s.alat=p?p[0]:null;s.alng=p?p[1]:null;
+  }
+}
+const pos=s=>s.prec==='exact'?{lat:s.lat,lng:s.lng}:(s.alat!=null?{lat:s.alat,lng:s.alng}:null);
+const mapsQ=s=>s.prec==='exact'?`${(+s.lat).toFixed(6)},${(+s.lng).toFixed(6)}`:(s.addr||s.name||`${s.alat},${s.alng}`);
+const searchUrl=s=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mapsQ(s));
+
+// ================= import =================
+function detectCols(rows){
+  const defs={lat:{ex:['enlem','lat','latitude','y'],pre:['enlem','latit']},lng:{ex:['boylam','lng','lon','long','longitude','x'],pre:['boylam','longit']},
+    loc:{ex:['konum','koordinat','kordinat','link','harita','maps','googlemaps','location','url'],pre:['konum','koordinat','harita','googlemaps','link']},
+    addr:{ex:['adres','address','acikadres','tamadres'],pre:['adres','address','acikadres']},
+    il:{ex:['il','sehir','city','province','vilayet'],pre:[]},ilce:{ex:['ilce','district','semt'],pre:['ilce']},
+    mah:{ex:['mahalle','mah','neighborhood','mahalleadi'],pre:['mahalle']},
+    name:{ex:['ad','adi','isim','name','unvan','firma','magaza','sube','isletme','nokta','yer','baslik','musteri','bayi','tabela'],pre:['firma','isletme','magaza','musteri','unvan','bayi','sube','tabela','isyeri']}};
+  let best={score:0,row:-1,map:{}};
+  for(let r=0;r<Math.min(6,rows.length);r++){
+    const head=rows[r].map(norm),used=new Set(),map={};let sc=0;
+    for(const f of ['lat','lng','loc','addr','il','ilce','mah','name']){
+      let i=head.findIndex((h,j)=>!used.has(j)&&defs[f].ex.includes(h));
+      if(i<0)i=head.findIndex((h,j)=>!used.has(j)&&h.length>2&&defs[f].pre.some(p=>h.startsWith(p)));
+      if(i>=0){used.add(i);map[f]=i;sc++}
+    }
+    if(sc>best.score)best={score:sc,row:r,map};
+  }
+  return best;
+}
+function fromRows(rows){
+  rows=rows.filter(r=>r&&r.some(c=>String(c??'').trim()!==''));
+  if(!rows.length)return{added:0};
+  const det=detectCols(rows),m=det.map,body=det.row>=0?rows.slice(det.row+1):rows;
+  let added=0;
+  for(const r of body){
+    const cell=k=>m[k]!=null?String(r[m[k]]??'').trim():'';
+    let c=null;
+    if(m.lat!=null&&m.lng!=null){const a=num(r[m.lat]),b=num(r[m.lng]);if(valid(a,b))c={lat:a,lng:b}}
+    if(!c&&m.loc!=null)c=findCoords(cell('loc'));
+    if(!c)c=findCoords(r.map(x=>String(x??'')).join(' ; '));
+    let addr=cell('addr');
+    const extra=[cell('mah')&&!/mah/i.test(cell('mah'))?cell('mah')+' Mah.':cell('mah'),cell('ilce'),cell('il')].filter(Boolean);
+    for(const e of extra)if(!normSp(addr).includes(normSp(e).replace(/ mah$/,'')))addr+=(addr?', ':'')+e;
+    let name=cell('name');
+    if(!name&&m.name==null)name=r.map(x=>String(x??'').trim()).find((x,j)=>x&&!Object.values(m).includes(j)&&!/^https?:/i.test(x)&&!findCoords(x)&&isNaN(num(x)))||'';
+    if(!c&&!addr&&!name)continue;
+    if(addStop({name,addr,il:cell('il'),ilce:cell('ilce'),mah:cell('mah'),lat:c?c.lat:null,lng:c?c.lng:null}))added++;
+  }
+  return{added};
+}
+function fromText(t){
+  let added=0;
+  for(let line of t.split(/\r?\n/)){
+    line=line.trim();if(!line)continue;
+    const c=findCoords(line);
+    if(!c&&/goo\.gl|maps\.app/.test(line)){toast('Kısa linkler (maps.app.goo.gl) okunamaz; linki açıp tarayıcıdaki uzun adresi yapıştır.');continue}
+    let rest=line.replace(/https?:\/\/\S+/g,'');if(c)rest=rest.replace(c.match,'');
+    rest=rest.replace(/\s+/g,' ').trim().replace(/^[-–;,|:\s]+|[-–;,|:\s]+$/g,'');
+    let name=rest,addr='';
+    const sp=rest.split(/\s[-–|;]\s|\t|;/);
+    if(sp.length>1){name=sp[0].trim();addr=sp.slice(1).join(', ').trim()}
+    else if(!c&&/(mah|cad|sok|sk\.|no:|\/)/i.test(rest)){addr=rest;name=''}
+    if(addStop({name,addr,lat:c?c.lat:null,lng:c?c.lng:null}))added++;
+  }
+  return{added};
+}
+function afterImport(added){
+  resolveApprox();state.plan=null;save();renderAll();
+  if(state.stops.some(needsGeo)){startGeocode();return}
+  const a=state.stops.filter(s=>s.prec!=='exact'&&s.prec!=='none').length,n=state.stops.filter(s=>s.prec==='none').length;
+  toast(`${added} nokta eklendi`+(a?`, ${a} yaklaşık konumlu`:'')+(n?`, ${n} konumsuz`:''));
+}
+function handleFile(f){
+  if(!f)return;
+  if(typeof XLSX==='undefined'){toast('Excel okuyucu yüklenemedi; satırları kopyalayıp "Elle yapıştır" alanına yapıştır.');return}
+  const r=new FileReader();
+  r.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});let added=0;
+      wb.SheetNames.forEach(n=>{if(n==='Konumsuz')return;added+=fromRows(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''})).added});
+      afterImport(added)}catch(err){toast('Dosya okunamadı: '+err.message)}};
+  r.readAsArrayBuffer(f);
+}
+$('#file').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
+const drop=$('#drop');
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('on')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('on')}));
+drop.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
+$('#addPaste').onclick=()=>{const t=$('#paste').value;if(!t.trim())return;
+  const res=t.includes('\t')?fromRows(t.split(/\r?\n/).map(l=>l.split('\t'))):fromText(t);$('#paste').value='';afterImport(res.added)};
+let clearArm=false;
+$('#clear').onclick=()=>{if(!state.stops.length)return;
+  if(!clearArm){clearArm=true;$('#clear').textContent='Emin misin? Tekrar bas';setTimeout(()=>{clearArm=false;$('#clear').textContent='Listeyi temizle'},3500);return}
+  clearArm=false;$('#clear').textContent='Listeyi temizle';state.stops=[];state.plan=null;save();renderAll()};
+$('#sample').onclick=()=>{
+  const ks=['ilkadim','atakum','canik','tekkekoy','ilkadim','atakum','carsamba','bafra','terme','havza'];let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const nm={ilkadim:'İlkadım',atakum:'Atakum',canik:'Canik',tekkekoy:'Tekkeköy',carsamba:'Çarşamba',bafra:'Bafra',terme:'Terme',havza:'Havza'};
+  const tags=['Fırın','Market','Lokanta','Pastane','Kasap','Süt Ürünleri','Unlu Mamul','Şarküteri'];
+  for(let i=0;i<70;i++){const k=ks[i%ks.length],c=SAM[k],sp=['ilkadim','atakum','canik'].includes(k)?.025:.015;
+    addStop({name:`${tags[i%8]} ${i+1}`,addr:nm[k]+'/Samsun',lat:+(c[0]+(rnd()-.5)*sp).toFixed(5),lng:+(c[1]+(rnd()-.5)*sp*1.4).toFixed(5)})}
+  addStop({name:'Karadeniz Süt Mandırası',addr:'Kılıçdede Mah. Bahçeler Sok. No:4 İlkadım/Samsun'});
+  addStop({name:'Yeşil Vadi Peynir Atölyesi',addr:'Yenidoğan Mah. 7. Sok. No:11 Tekkeköy/Samsun'});
+  addStop({name:'Usta Pide Fırını',addr:'Cumhuriyet Mah. Gazi Cad. No:20 Çarşamba/Samsun'});
+  afterImport(73)};
+
+// ================= routing =================
+function hav(a,b){const R=6371,t=Math.PI/180,dl=(b.lat-a.lat)*t,dg=(b.lng-a.lng)*t;
+  const x=Math.sin(dl/2)**2+Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+// Fixed start at index 0. round=true: return to start. endFixed=true: last point in pts is a fixed final stop.
+// Nearest neighbour start, then 2-opt + or-opt local search on the true total distance.
+function solve(pts,round,budgetMs,endFixed){
+  const n=pts.length,m=endFixed?n-1:n,E=endFixed?n-1:-1;
+  if(m<3)return[...Array(m).keys()];
+  const D=new Float64Array(n*n);
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const v=hav(pts[i],pts[j]);D[i*n+j]=v;D[j*n+i]=v}
+  const d=(a,b)=>(a<0||b<0)?0:D[a*n+b];
+  let t=[0];const used=new Uint8Array(m);used[0]=1;
+  for(let k=1;k<m;k++){const l=t[t.length-1];let bi=-1,bd=Infinity;for(let j=0;j<m;j++)if(!used[j]&&D[l*n+j]<bd){bd=D[l*n+j];bi=j}t.push(bi);used[bi]=1}
+  const nx=k=>k+1<m?t[k+1]:(E>=0?E:(round?t[0]:-1));
+  const total=()=>{let c=0;for(let k=0;k<m;k++)c+=d(t[k],nx(k));return c};
+  const t0=performance.now(),budget=budgetMs||3000;
+  let best=null,bestC=Infinity,seed=12345;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  const tries=m<=40?16:1;
+  for(let attempt=0;attempt<tries&&(attempt===0||performance.now()-t0<budget);attempt++){
+  if(attempt>0){t=best.slice();const a=1+Math.floor(rnd()*(m-1)),b=1+Math.floor(rnd()*(m-1)),c=1+Math.floor(rnd()*(m-1));
+    const q=[a,b,c].sort((x,y)=>x-y);if(q[2]-q[0]<2){for(let k=m-1;k>1;k--){const j=1+Math.floor(rnd()*k);[t[k],t[j]]=[t[j],t[k]]}}
+    else t=[...t.slice(0,q[0]),...t.slice(q[1],q[2]),...t.slice(q[0],q[1]),...t.slice(q[2])]}
+  let improved=true;
+  while(improved&&performance.now()-t0<budget){
+    improved=false;
+    for(let i=1;i<m-1;i++){for(let k=i+1;k<m;k++){
+      const a=t[i-1],b=t[i],c=t[k],e=nx(k);
+      if(d(a,c)+d(b,e)-d(a,b)-d(c,e)<-1e-9){let x=i,y=k;while(x<y){const tmp=t[x];t[x]=t[y];t[y]=tmp;x++;y--}improved=true}}}
+    for(let L=1;L<=3;L++){
+      for(let i=1;i+L-1<m;i++){
+        const p=t[i-1],f=t[i],l=t[i+L-1],q=nx(i+L-1);
+        const gain=d(p,f)+d(l,q)-d(p,q);
+        let bestJ=-1,bestC=gain-1e-9,rev=false;
+        for(let j=0;j<m;j++){if(j>=i-1&&j<=i+L-1)continue;
+          const u=t[j],v=nx(j);if(v===f)continue;
+          const c1=d(u,f)+d(l,v)-d(u,v),c2=d(u,l)+d(f,v)-d(u,v);
+          if(c1<bestC){bestC=c1;bestJ=j;rev=false}if(c2<bestC){bestC=c2;bestJ=j;rev=true}}
+        if(bestJ>=0){const u=t[bestJ];const seg=t.splice(i,L);if(rev)seg.reverse();const at=t.indexOf(u)+1;t.splice(at,0,...seg);improved=true}
+      }
+    }
+  }
+  const c=total();if(c<bestC-1e-9){bestC=c;best=t.slice()}
+  }
+  return best;
+}
+function splitEven(arr,per){const k=Math.ceil(arr.length/per),out=[];let s=0;
+  for(let i=0;i<k;i++){const len=Math.floor(arr.length/k)+(i<arr.length%k?1:0);out.push(arr.slice(s,s+len));s+=len}return out}
+function getMyPos(){return new Promise((res,rej)=>{if(!navigator.geolocation)return rej(new Error('no geo'));
+  navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),rej,{enableHighAccuracy:true,timeout:12000})})}
+
+// ================= helpers for done state =================
+// After a stop is finished, reorder the rest of that day starting from that stop, so the next one is the closest sensible choice
+function reoptFrom(fromPos,dayIdx){
+  const p=state.plan;if(!p||!fromPos)return false;const day=p.days[dayIdx];if(!day)return false;
+  const m=new Map(state.stops.map(x=>[x.id,x]));
+  const doneIds=day.filter(id=>{const x=m.get(id);return !x||x.done||!pos(x)});
+  const todo=day.filter(id=>!doneIds.includes(id));if(todo.length<2)return false;
+  const pts=[fromPos,...todo.map(id=>pos(m.get(id)))];if(p.round)pts.push(p.base);
+  const t=solve(pts,false,800,p.round);
+  const before=todo.join(',');const after=t.slice(1).map(i=>todo[i-1]);
+  p.days[dayIdx]=[...doneIds,...after];return before!==after.join(',');
+}
+function finishStop(id){const s=byId(id);if(!s)return;setDone(s,true);
+  const di=state.plan?state.plan.days.findIndex(d=>d.includes(s.id)):-1;
+  if(di>=0)reoptFrom(pos(s),di);save()}
+function setDone(s,v){s.done=v;s.doneAt=v?Date.now():null;if(state.pendingAsk===s.id&&v)state.pendingAsk=null;save()}
+const byId=id=>state.stops.find(x=>x.id==id);
+
+// ================= tabs =================
+let view='drive';
+function go(v){view=v;document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  renderView();window.scrollTo(0,0)}
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)go(b.dataset.v)});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b){e.preventDefault();go(b.dataset.go)}});
+function renderView(){updateNavBadges();if(view==='drive')renderDrive();if(view==='plan')renderPlan();if(view==='points')renderList();if(view==='done')renderDone()}
+function updateNavBadges(){const n=state.stops.filter(s=>s.done).length;$('#navDone').textContent=n?n:'';$('#navPts').textContent=state.stops.length||''}
+
+// ================= points list =================
+function counts(){const c={all:state.stops.length,exact:0,approx:0,none:0};
+  for(const s of state.stops){if(s.prec==='exact')c.exact++;else if(s.prec==='none')c.none++;else c.approx++}return c}
+function renderList(){
+  const c=counts();
+  $('#emptyPts').hidden=!!c.all;
+  $('#counts').innerHTML=!c.all?'':[['all','Tümü'],['exact','Kesin konum'],['approx','Yaklaşık konum'],['none','Konumu yok']]
+    .map(([k,l])=>`<button data-f="${k}" class="${filter===k?'on':''}">${l}<i>${c[k]}</i></button>`).join('');
+  $('#q').hidden=!c.all;
+  $('#approxNote').innerHTML=(c.approx||c.none)?`<div class="note">${c.approx?`<p><span class="chip c-approx">Yaklaşık</span> <strong>${c.approx} nokta</strong> haritada işletme olarak yok ya da koordinatı yok. Adresindeki mahalle/ilçeye göre yerleştirildi, Google Maps bunlara açık adresle gider.</p>`:''}${c.none?`<p><span class="chip c-none">Konumu yok</span> <strong>${c.none} nokta</strong> adresinden bulunamadı ve plana girmez.</p>`:''}<p class="hint" style="margin:0">Düzeltmek için noktanın altındaki "Haritada düzelt"e dokun ve doğru yere işaretle.</p></div>`:'';
+  const q=normSp($('#q').value);
+  let arr=state.stops.filter(s=>filter==='all'||(filter==='exact'&&s.prec==='exact')||(filter==='none'&&s.prec==='none')||(filter==='approx'&&s.prec!=='exact'&&s.prec!=='none'));
+  if(q)arr=arr.filter(s=>normSp(s.name+' '+s.addr).includes(q));
+  arr.sort((a,b)=>(a.prec==='exact')-(b.prec==='exact'));
+  $('#list').innerHTML=arr.slice(0,shown).map(s=>{const cls=s.prec==='exact'?'c-exact':s.prec==='none'?'c-none':'c-approx';
+    return `<div class="item ${s.done?'done':''}"><label class="tick"><input type="checkbox" data-done="${s.id}" ${s.done?'checked':''} aria-label="Tamamlandı"></label>
+      <div><div class="nm">${esc(s.name)}</div>${s.addr?`<div class="ad">${esc(s.addr)}</div>`:''}
+      <div class="meta"><span class="chip ${cls}">${s.prec==='exact'&&s.gl?GL[s.gl]:PREC[s.prec]}</span><button class="linkish" style="color:var(--route);font-size:.85rem" data-edit="${s.id}">Haritada düzelt</button></div></div>
+      <button class="x" data-del="${s.id}" aria-label="Listeden sil">×</button>
+      ${s.prec!=='exact'?`<div class="fix"><input type="text" placeholder="Google Maps linki veya 41.01, 28.97" data-fix="${s.id}"><button class="small" data-fixbtn="${s.id}">Kaydet</button></div>`:''}</div>`}).join('');
+  $('#moreRow').hidden=arr.length<=shown;
+}
+$('#counts').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;filter=b.dataset.f;shown=60;renderList()});
+$('#q').addEventListener('input',()=>{shown=60;renderList()});
+$('#more').onclick=()=>{shown+=100;renderList()};
+$('#list').addEventListener('click',e=>{
+  const d=e.target.dataset;
+  if(d.del){state.stops=state.stops.filter(s=>s.id!=d.del);resolveApprox();save();renderList();updateNavBadges()}
+  if(d.edit){editStop(+d.edit);return}
+  if(d.fixbtn){const inp=document.querySelector(`[data-fix="${d.fixbtn}"]`),c=findCoords(inp.value);
+    if(!c){toast('Koordinat bulunamadı. Haritada noktaya uzun bas, üstte çıkan sayıları kopyala.');return}
+    const s=byId(d.fixbtn);s.lat=c.lat;s.lng=c.lng;s.prec='exact';s.gl='elle';resolveApprox();save();renderList();toast('Konum kaydedildi')}
+});
+$('#list').addEventListener('change',e=>{const id=e.target.dataset.done;if(!id)return;const s=byId(id);setDone(s,e.target.checked);
+  toast(s.done?'Tamamlananlara eklendi':'Tamamlananlardan çıkarıldı');renderList();updateNavBadges()});
+
+// ================= settings =================
+function syncSettingsUI(){const st=state.settings;
+  $('#start').value=st.start;$('#custom').value=st.custom||'';$('#customWrap').hidden=st.start!=='custom';
+  $('#perDay').value=st.perDay;$('#round').checked=st.round;$('#skipDone').checked=st.skipDone;$('#chunk').value=String(st.chunk);$('#mapApp').value=st.mapApp||'google'}
+function readSettings(){const st=state.settings;st.start=$('#start').value;st.custom=$('#custom').value;st.perDay=Math.max(0,parseInt($('#perDay').value)||0);
+  st.round=$('#round').checked;st.skipDone=$('#skipDone').checked;st.chunk=+$('#chunk').value;st.mapApp=$('#mapApp').value;$('#customWrap').hidden=st.start!=='custom';save()}
+['start','custom','perDay','round','skipDone','chunk','mapApp'].forEach(id=>$('#'+id).addEventListener('change',readSettings));
+
+// ================= plan calculation =================
+function centroid(list){const ps=list.map(pos);return{lat:ps.reduce((a,p)=>a+p.lat,0)/ps.length,lng:ps.reduce((a,p)=>a+p.lng,0)/ps.length}}
+function tryPos(ms){return new Promise(res=>{if(!navigator.geolocation)return res(null);let done=false;
+  const t=setTimeout(()=>{if(!done){done=true;res(null)}},ms);
+  try{navigator.geolocation.getCurrentPosition(p=>{if(done)return;done=true;clearTimeout(t);res({lat:p.coords.latitude,lng:p.coords.longitude})},
+    ()=>{if(done)return;done=true;clearTimeout(t);res(null)},{enableHighAccuracy:false,timeout:ms,maximumAge:600000})}catch(e){done=true;clearTimeout(t);res(null)}})}
+$('#calc').onclick=async()=>{
+  if(geoRun){toast(`Adresler hâlâ aranıyor (${geoRun.done}/${geoRun.total}). Bitince planı hesapla.`);go('points');return}
+  readSettings();const st=state.settings;
+  const active=state.stops.filter(s=>pos(s)&&!(st.skipDone&&s.done));
+  if(!active.length){toast('Plana girecek nokta yok. Önce Noktalar sekmesinden listeni yükle.');return}
+  let base,msg='';
+  if(st.start==='custom'){const c=findCoords(st.custom);
+    if(!c){$('#calcMsg').innerHTML='<span class="warn">Başlangıç adresi için Google Maps linki ya da "41.01, 28.97" gibi koordinat yaz.</span>';return}
+    base={lat:c.lat,lng:c.lng,label:'Başlangıç adresi'}}
+  else if(st.start==='first'){const p=pos(active[0]);base={lat:p.lat,lng:p.lng,label:active[0].name}}
+  else{
+    $('#calc').disabled=true;$('#calcMsg').textContent='Konumun alınıyor…';
+    const p=await tryPos(7000);
+    if(p){state.lastPos=p;base={lat:p.lat,lng:p.lng,label:'Bulunduğun yer',me:true}}
+    else if(state.lastPos){base={...state.lastPos,label:'Bulunduğun yer',me:true}}
+    else{base={...centroid(active),label:'Bulunduğun yer',me:true};msg='Telefon konumu bu sayfaya verilmedi; plan noktaların ortasından hesaplandı. Navigasyon yine telefonunun gerçek konumundan başlar.'}
+  }
+  $('#calc').disabled=true;$('#calcMsg').textContent=`${active.length} nokta hesaplanıyor…`;
+  await new Promise(r=>setTimeout(r,30));
+  const per=st.perDay;let groups;
+  if(!per||active.length<=per)groups=[active];
+  else{const t=solve([base,...active.map(pos)],true,5000);groups=splitEven(t.slice(1).map(i=>active[i-1]),per)}
+  const days=groups.map(g=>solve([base,...g.map(pos)],st.round,1500).slice(1).map(i=>g[i-1].id));
+  state.plan={base,days,round:st.round,at:Date.now()};state.activeDay=0;planSel=days.length>1?-1:0;
+  $('#calc').disabled=false;$('#calcMsg').innerHTML=msg?`<span class="hint">${msg}</span>`:'';save();renderPlan();
+  $('#planOut').scrollIntoView({behavior:'smooth'});
+};
+
+// ================= plan view =================
+let planSel=0;
+function dayStops(i){const m=new Map(state.stops.map(s=>[s.id,s]));return(state.plan.days[i]||[]).map(id=>m.get(id)).filter(s=>s&&pos(s))}
+function dayKm(list,base,round){let k=0,prev=base;for(const s of list){const p=pos(s);k+=hav(prev,p);prev=p}if(round&&list.length)k+=hav(prev,base);return k}
+function appleUrl(q){return 'https://maps.apple.com/?daddr='+encodeURIComponent(q)+'&dirflg=d'}
+function navUrl(s,app){return (app||state.settings.mapApp)==='apple'?appleUrl(mapsQ(s)):dirUrl(mapsQ(s))}
+const ROADF=1.3; // straight-line → approximate road distance in cities
+function kmTxt(k){return k<1?Math.round(k*1000)+' m':k.toFixed(1)+' km'}
+function dirUrl(dest,origin,waypoints){const u=new URL('https://www.google.com/maps/dir/');u.searchParams.set('api','1');
+  if(origin)u.searchParams.set('origin',origin);u.searchParams.set('destination',dest);if(waypoints&&waypoints.length)u.searchParams.set('waypoints',waypoints.join('|'));
+  u.searchParams.set('travelmode','driving');return u.toString()}
+function dayLinks(list,base,round,size){
+  const todo=list.filter(s=>!s.done);if(!todo.length)return[];
+  const bq=`${base.lat.toFixed(6)},${base.lng.toFixed(6)}`;const seq=todo.map(mapsQ);if(round)seq.push(bq);
+  const all=[null,...seq];const out=[];
+  for(let i=0;i<all.length-1;i+=size-1){const part=all.slice(i,i+size);if(part.length<2)break;out.push(dirUrl(part[part.length-1],part[0],part.slice(1,-1)))}
+  return out;
+}
+function plot(svgSel,groups,base,numbered){
+  const W=600,H=380,P=28,all=[base];groups.forEach(g=>g.list.forEach(s=>all.push(pos(s))));
+  const k=Math.cos(all.reduce((a,p)=>a+p.lat,0)/all.length*Math.PI/180);
+  const xs=all.map(p=>p.lng*k),ys=all.map(p=>p.lat);
+  const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+  const sc=Math.min((W-2*P)/((maxx-minx)||1e-6),(H-2*P)/((maxy-miny)||1e-6));
+  const ox=(W-(maxx-minx)*sc)/2,oy=(H-(maxy-miny)*sc)/2;
+  const X=p=>(ox+(p.lng*k-minx)*sc).toFixed(1),Y=p=>(H-(oy+(p.lat-miny)*sc)).toFixed(1);
+  let g='';
+  for(const gr of groups){const pts=[base,...gr.list.map(pos)];if(state.plan.round)pts.push(base);
+    g+=`<polyline points="${pts.map(p=>X(p)+','+Y(p)).join(' ')}" fill="none" stroke="${gr.color}" stroke-width="${numbered?3:2}" stroke-linejoin="round" opacity="${numbered?.85:.7}"/>`}
+  for(const gr of groups)gr.list.forEach((s,i)=>{const p=pos(s),ap=s.prec!=='exact';
+    if(numbered)g+=`<g opacity="${s.done?.35:1}"><circle cx="${X(p)}" cy="${Y(p)}" r="11" fill="${s.done?'var(--ok)':ap?'var(--panel)':'var(--pin)'}" stroke="${ap&&!s.done?'var(--approx)':'var(--panel)'}" stroke-width="2" ${ap&&!s.done?'stroke-dasharray="3 2"':''}/><text x="${X(p)}" y="${+Y(p)+4}" text-anchor="middle" font-size="10" font-weight="800" fill="${s.done?'#fff':ap?'var(--approx)':'#15303F'}" font-family="Archivo,system-ui,sans-serif">${s.done?'✓':i+1}</text><title>${esc(s.name)}</title></g>`;
+    else g+=`<circle cx="${X(p)}" cy="${Y(p)}" r="3.5" fill="${gr.color}" opacity="${s.done?.3:1}"><title>${esc(s.name)}</title></circle>`});
+  g+=`<g><rect x="${X(base)-11}" y="${Y(base)-11}" width="22" height="22" rx="5" fill="var(--ink)"/><text x="${X(base)}" y="${+Y(base)+4}" text-anchor="middle" font-size="11" font-weight="800" fill="var(--panel)" font-family="Archivo,system-ui,sans-serif">B</text><title>${esc(base.label)}</title></g>`;
+  $(svgSel).innerHTML=g;
+}
+function renderPlan(){
+  const p=state.plan;$('#planOut').hidden=!(p&&p.days&&p.days.length);if($('#planOut').hidden)return;
+  const days=p.days.map((_,i)=>dayStops(i));
+  if(planSel>=days.length)planSel=days.length>1?-1:0;
+  const totKm=days.reduce((a,d)=>a+dayKm(d,p.base,p.round),0),totStops=days.reduce((a,d)=>a+d.length,0),doneN=days.reduce((a,d)=>a+d.filter(s=>s.done).length,0);
+  $('#stats').innerHTML=`<div><span>${days.length}</span><small>gün</small></div><div><span>${totStops}</span><small>durak</small></div><div><span>${doneN}</span><small>tamamlandı</small></div><div><span>${Math.round(totKm)} km</span><small>toplam (kuş uçuşu)</small></div>`;
+  $('#tabs').innerHTML=(days.length>1?`<button class="tab ${planSel===-1?'on':''}" data-day="-1">Tüm günler</button>`:'')+
+    days.map((d,i)=>`<button class="tab ${planSel===i?'on':''}" data-day="${i}" style="--c:${DAYC[i%8]}">${i+1}. gün${d.length&&d.every(s=>s.done)?' ✓':''}</button>`).join('');
+  if(planSel===-1){
+    drawMap(days.map((d,i)=>({list:d,color:DAYC[i%8]})),p.base,false);
+    $('#dayBody').innerHTML=days.map((d,i)=>{const dn=d.filter(s=>s.done).length;return `<div class="daysum"><span class="sw" style="background:${DAYC[i%8]}"></span>
+      <button class="linkish" data-day="${i}"><strong>${i+1}. gün</strong><br><span class="hint">${d.length} durak · ${dayKm(d,p.base,p.round).toFixed(0)} km · ${dn}/${d.length} tamam</span></button>
+      <button class="small ${dn===d.length&&d.length?'ghost':''}" data-start="${i}">${dn===d.length&&d.length?'Bitti':'Bu günle yola çık'}</button></div>`}).join('');
+    return;
+  }
+  const d=days[planSel];drawMap([{list:d,color:DAYC[planSel%8]}],p.base,true);
+  let h=`<div class="row" style="margin:12px 0"><button class="big" data-start="${planSel}">${planSel+1}. günle yola çık</button></div><ol class="route">`;
+  let prev=p.base;
+  d.forEach((s,i)=>{const q=pos(s),km=hav(prev,q);prev=q;const ap=s.prec!=='exact';
+    h+=`<li class="${s.done?'done':''}"><input type="checkbox" data-pdone="${s.id}" ${s.done?'checked':''} aria-label="Tamamlandı"><span class="num ${ap?'ap':''}">${i+1}</span><div class="t">${esc(s.name)}${s.addr?`<small>${esc(s.addr)}</small>`:''}${ap?`<small class="c-approx">Yaklaşık konum, adresle aranır</small>`:''}</div><span class="d">${km.toFixed(1)} km</span></li>`});
+  $('#dayBody').innerHTML=h+'</ol>';
+}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-day]');if(!b)return;planSel=+b.dataset.day;renderPlan()});
+$('#dayBody').addEventListener('click',e=>{const s=e.target.closest('[data-start]');if(s){state.activeDay=+s.dataset.start;save();go('drive');return}
+  const b=e.target.closest('[data-day]');if(b){planSel=+b.dataset.day;renderPlan()}});
+$('#dayBody').addEventListener('change',e=>{const id=e.target.dataset.pdone;if(!id)return;setDone(byId(id),e.target.checked);
+  toast(e.target.checked?'Tamamlananlara eklendi':'Tamamlananlardan çıkarıldı');renderPlan();updateNavBadges()});
+
+// ================= drive view =================
+function renderDrive(){
+  const p=state.plan,el=$('#driveBody');
+  if(!p||!p.days||!p.days.length){
+    el.innerHTML=`<div class="empty"><h2>Henüz plan yok</h2><p class="hint">1. Noktalar sekmesinden Excel'ini yükle.<br>2. Plan sekmesinde rotayı hesapla.<br>3. Buraya dön, durak durak ilerle.</p>
+      <div class="row" style="justify-content:center"><button data-go="${state.stops.length?'plan':'points'}">${state.stops.length?'Planı hesapla':'Excel yükle'}</button></div></div>`;return}
+  let i=Math.min(state.activeDay||0,p.days.length-1);
+  const d=dayStops(i),dn=d.filter(s=>s.done).length,cur=d.find(s=>!s.done),rest=d.filter(s=>!s.done&&s!==cur);
+  const pct=d.length?Math.round(dn/d.length*100):0;
+  let h=`<div class="dayhead"><button class="ghost small" data-dnav="-1" ${i===0?'disabled':''} aria-label="Önceki gün">‹</button>
+    <div><h2>${i+1}. gün</h2><span class="hint">${dn} / ${d.length} durak tamamlandı</span></div>
+    <button class="ghost small" data-dnav="1" ${i>=p.days.length-1?'disabled':''} aria-label="Sonraki gün">›</button></div>
+    <div class="bar"><span style="width:${pct}%"></span></div>`;
+  const last=d.filter(s=>s.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0))[0];
+  const from=last?pos(last):p.base,fromLbl=last?'son duraktan':(p.base.me?'başlangıçtan':'başlangıç noktasından');
+  const app=state.settings.mapApp,other=app==='apple'?'google':'apple',appName={apple:'Apple Haritalar',google:'Google Maps'};
+  if(cur){const ap=cur.prec!=='exact';const no=d.indexOf(cur)+1;const km=hav(from,pos(cur));
+    h+=`<div class="card"><p class="hint" style="margin:0">Sıradaki durak · ${no}. sıra</p>
+      <h3 class="cur">${esc(cur.name)}</h3>${cur.addr?`<p class="addr">${esc(cur.addr)}</p>`:''}
+      <div class="dist"><span>${fromLbl[0].toUpperCase()+fromLbl.slice(1)} <strong>${kmTxt(km)}</strong> <span class="hint">(yolla ≈ ${kmTxt(km*ROADF)})</span></span></div>
+      ${ap?`<p class="c-approx" style="font-size:.88rem;margin:0">Haritada işletme olarak yok; harita uygulaması adresle bulur.</p>`:''}
+      <a class="btn maps" data-nav="${cur.id}" href="${navUrl(cur)}" target="_blank" rel="noopener">Yol tarifi al<br><span style="font-weight:500;font-size:.85rem;opacity:.85">${appName[app]}</span></a>
+      <div class="alt">veya <a data-nav="${cur.id}" href="${navUrl(cur,other)}" target="_blank" rel="noopener">${appName[other]} ile aç</a></div>
+      <div class="two"><button class="okbtn" data-finish="${cur.id}">✓ Tamamlandı</button><button class="ghost" data-skip="${cur.id}">Sonraya bırak</button></div>
+      <p class="hint" style="margin:8px 0 0">Durakta işin bitip bu sayfaya döndüğünde "tamamlandı mı?" diye soracağım.</p></div>`;
+  }else{
+    h+=`<div class="card center"><h3 class="cur">Bugünün tüm durakları tamamlandı</h3>${i<p.days.length-1?`<button class="big" data-dnav="1">${i+2}. güne geç</button>`:'<p class="hint">Plandaki tüm günler bitti.</p>'}</div>`;
+  }
+  if(cur)h+=`<div class="row"><button class="ghost small" id="resort">Sırayı şu anki konumuma göre yenile</button></div>`;
+  if(rest.length){let pv=pos(cur);h+=`<h3>Sonraki duraklar</h3><ol class="route">`+rest.map(s=>{const q=pos(s),k=hav(pv,q);pv=q;return `<li><input type="checkbox" data-ddone="${s.id}" aria-label="Tamamlandı"><span class="num ${s.prec!=='exact'?'ap':''}">${d.indexOf(s)+1}</span><div class="t">${esc(s.name)}${s.addr?`<small>${esc(s.addr)}</small>`:''}</div><span class="d">+${kmTxt(k)}</span></li>`}).join('')+'</ol>'}
+  const fin=d.filter(s=>s.done);
+  if(fin.length)h+=`<details style="margin-top:12px"><summary class="hint" style="cursor:pointer">Bugün tamamlananlar (${fin.length})</summary><ol class="route">`+fin.map(s=>`<li class="done"><input type="checkbox" checked data-ddone="${s.id}" aria-label="Tamamlandı"><span class="num okn">✓</span><div class="t">${esc(s.name)}</div></li>`).join('')+'</ol></details>';
+  const links=dayLinks(d,p.base,p.round,state.settings.chunk);
+  if(links.length>0)h+=`<details style="margin-top:12px"><summary class="hint" style="cursor:pointer">Kalan günü tek seferde Google Maps'te aç</summary><div class="links">${links.map((u,k)=>`<a class="btn ghostbtn" href="${u}" target="_blank" rel="noopener">${links.length>1?`${k+1}. bölüm`:'Tüm kalan duraklar'}</a>`).join('')}</div><p class="hint">Bu özellik Google Maps ile çalışır (Apple Haritalar çok duraklı rota açmaz). Google Maps tek seferde en fazla ${state.settings.chunk} nokta alır. Bu modda "tamamlandı mı" sorusu gelmez, kutuları kendin işaretle.</p></details>`;
+  el.innerHTML=h;
+}
+$('#driveBody').addEventListener('click',e=>{
+  const t=e.target.closest('[data-dnav],[data-nav],[data-finish],[data-skip]');if(!t)return;
+  if(t.dataset.dnav){state.activeDay=Math.max(0,Math.min(state.plan.days.length-1,(state.activeDay||0)+ +t.dataset.dnav));save();renderDrive();return}
+  if(t.dataset.nav){state.pendingAsk=+t.dataset.nav;save();return}
+  if(t.dataset.finish){finishStop(+t.dataset.finish);toast('Tamamlananlara eklendi');renderDrive();updateNavBadges();return}
+  if(t.dataset.skip){skipStop(+t.dataset.skip);return}
+});
+$('#driveBody').addEventListener('click',async e=>{if(e.target.id!=='resort')return;
+  e.target.disabled=true;e.target.textContent='Konum alınıyor…';
+  const p=await tryPos(8000);
+  if(!p){toast('Telefon konumu bu sayfaya verilmedi. Sıra, son tamamlanan durağa göre ayarlı kalır.');renderDrive();return}
+  state.lastPos=p;const ch=reoptFrom(p,state.activeDay||0);save();renderDrive();toast(ch?'Sıra bulunduğun yere göre yenilendi':'Sıra zaten en yakın durakla başlıyor')});
+$('#driveBody').addEventListener('change',e=>{const id=e.target.dataset.ddone;if(!id)return;if(e.target.checked)finishStop(+id);else setDone(byId(id),false);
+  toast(e.target.checked?'Tamamlananlara eklendi':'Tamamlananlardan çıkarıldı');renderDrive();updateNavBadges()});
+function skipStop(id){const day=state.plan.days[state.activeDay||0];const k=day.indexOf(id);if(k<0)return;day.splice(k,1);day.push(id);
+  if(state.pendingAsk===id)state.pendingAsk=null;save();renderDrive();toast('Günün sonuna alındı')}
+
+// ================= "tamamlandı mı?" prompt =================
+function maybeAsk(){
+  const id=state.pendingAsk;if(!id)return;const s=byId(id);
+  if(!s||s.done){state.pendingAsk=null;save();return}
+  $('#askName').textContent=s.name;$('#askAddr').textContent=s.addr||'';$('#ask').hidden=false;$('#askYes').focus({preventScroll:true});
+}
+function closeAsk(){$('#ask').hidden=true}
+$('#askYes').onclick=()=>{const id=state.pendingAsk;state.pendingAsk=null;if(id)finishStop(id);save();closeAsk();
+  if(view!=='drive')go('drive');else renderDrive();updateNavBadges();toast('Tamamlananlara eklendi')};
+$('#askNo').onclick=()=>{closeAsk();toast('Tamam, döndüğünde tekrar soracağım')};
+$('#askSkip').onclick=()=>{const id=state.pendingAsk;state.pendingAsk=null;closeAsk();skipStop(id)};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(maybeAsk,300)});
+window.addEventListener('focus',()=>setTimeout(maybeAsk,300));
+
+// ================= done view =================
+function renderDone(){
+  const list=state.stops.filter(s=>s.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  if(!list.length){$('#doneBody').innerHTML='<div class="empty"><p class="hint">Henüz tamamlanan durak yok. Durakları sürüş ekranından ya da kutularına dokunarak tamamlayabilirsin.</p></div>';return}
+  const groups={};for(const s of list){const k=s.doneAt?new Date(s.doneAt).toLocaleDateString('tr-TR',{day:'numeric',month:'long',weekday:'long'}):'Tarihsiz';(groups[k]=groups[k]||[]).push(s)}
+  $('#doneBody').innerHTML=`<p class="hint">Toplam ${list.length} durak tamamlandı, ${state.stops.filter(s=>!s.done&&pos(s)).length} durak kaldı.</p>`+
+    Object.entries(groups).map(([k,arr])=>`<h3>${esc(k)} <span class="hint">(${arr.length})</span></h3><ol class="route">`+arr.map(s=>`<li><span class="num okn">✓</span><div class="t">${esc(s.name)}${s.addr?`<small>${esc(s.addr)}</small>`:''}${s.doneAt?`<small>${new Date(s.doneAt).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</small>`:''}</div><button class="ghost small" data-undo="${s.id}">Geri al</button></li>`).join('')+'</ol>').join('');
+}
+$('#doneBody').addEventListener('click',e=>{const id=e.target.dataset.undo;if(!id)return;setDone(byId(id),false);toast('Tamamlananlardan çıkarıldı');renderDone();updateNavBadges()});
+
+// ================= export (xlsx) =================
+let downloads=null;
+const STANDALONE=!(window.claude&&typeof window.claude.use==='function');
+async function initDownloads(){if(STANDALONE){$('#export').hidden=false;return}
+  try{downloads=await window.claude.use('downloads');$('#export').hidden=!downloads}catch(e){}}
+$('#export').onclick=async()=>{
+  if(typeof XLSX==='undefined'){toast('Excel modülü yüklenemedi; internet bağlantısını kontrol et.');return}
+  const p=state.plan,rows=[['Gün','Sıra','Ad','Adres','Enlem','Boylam','Konum','Önceki noktadan km','Durum','Tamamlanma','Google Maps']];
+  const fmt=t=>t?new Date(t).toLocaleString('tr-TR'):'';
+  if(p)p.days.forEach((_,i)=>{let prev=p.base;dayStops(i).forEach((s,j)=>{const q=pos(s);
+    rows.push([i+1,j+1,s.name,s.addr,s.prec==='exact'?s.lat:'',s.prec==='exact'?s.lng:'',PREC[s.prec],+hav(prev,q).toFixed(2),s.done?'Tamamlandı':'',fmt(s.doneAt),searchUrl(s)]);prev=q})});
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Plan');
+  const all=[['Ad','Adres','Mahalle','İlçe','İl','Enlem','Boylam','Konum','Durum','Tamamlanma']].concat(state.stops.map(s=>[s.name,s.addr,s.mah,s.ilce,s.il,s.prec==='exact'?s.lat:'',s.prec==='exact'?s.lng:'',PREC[s.prec],s.done?'Tamamlandı':'',fmt(s.doneAt)]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(all),'Tüm noktalar');
+  const fname='denetim-plani.xlsx';
+  if(window.AndroidBridge&&window.AndroidBridge.saveFile){const r=String(window.AndroidBridge.saveFile(fname,XLSX.write(wb,{type:'base64',bookType:'xlsx'})));
+    toast(r.startsWith('ok')?'İndirilenler klasörüne kaydedildi':'Kaydedilemedi');return}
+  const buf=XLSX.write(wb,{type:'array',bookType:'xlsx'});
+  if(!downloads){const url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);return}
+  try{await downloads.save({filename:'denetim-plani.xlsx',data:new Blob([buf])});toast('Excel kaydedildi')}
+  catch(e){if(e&&e.code==='declined')return;toast('Excel kaydedilemedi')}
+};
+
+// ================= address → map (OpenStreetMap / Nominatim) =================
+const MAHK=new Set(['mah','mahallesi','mh','mahalle','mahalesi']);
+const STRK={sok:'Sokak',sokak:'Sokak',sokagi:'Sokağı',sk:'Sokak',cad:'Caddesi',cadde:'Caddesi',caddesi:'Caddesi',cd:'Caddesi',bulvar:'Bulvarı',bulvari:'Bulvarı',blv:'Bulvarı',yolu:'Yolu',kume:'Küme Evler',sokaklari:'Sokakları'};
+const NOK=new Set(['no','numara','nu','apt','apartmani','apartman','daire','kat','d','blok','sitesi','site']);
+const capTR=t=>String(t||'').split(' ').map(w=>w?w.charAt(0).toLocaleUpperCase('tr-TR')+w.slice(1).toLocaleLowerCase('tr-TR'):w).join(' ');
+function parseAddr(text){
+  const raw=String(text||'').replace(/([,\/;()])/g,' $1 ').replace(/\b(no|No|NO)\s*[:.]\s*/g,'No ').replace(/:/g,' ');
+  const toks=raw.split(/\s+/).filter(Boolean),nt=toks.map(x=>norm(x));
+  const back=(k,max)=>{const out=[];for(let i=k-1;i>=0&&out.length<max;i--){const n=nt[i];if(!n||MAHK.has(n)||STRK[n]||NOK.has(n)||IL[n])break;out.unshift(toks[i])}return out.join(' ')};
+  let street='',no='',mah='';
+  const si=nt.findIndex((n,i)=>i>0&&STRK[n]);
+  if(si>0){const nm=back(si,4);if(nm)street=nm+' '+STRK[nt[si]];
+    for(let i=si+1;i<Math.min(nt.length,si+7);i++){if(['d','daire','kat','blok'].includes(nt[i])){i++;continue}const m=toks[i].match(/^(\d+)/);if(m){no=m[1];break}if(MAHK.has(nt[i])||STRK[nt[i]])break}}
+  if(!no){const m=String(text).match(/\bno\s*[:.]?\s*(\d+)/i);if(m)no=m[1]}
+  const mi=nt.findIndex((n,i)=>i>0&&MAHK.has(n));if(mi>0)mah=back(mi,3);
+  return{street:capTR(street),no,mah:capTR(mah),toks,nt};
+}
+let geoCache={};try{geoCache=JSON.parse(localStorage.getItem('denetim-geo-v1')||'{}')}catch(e){}
+function saveGeoCache(){try{const j=JSON.stringify(geoCache);if(j.length<3e6)localStorage.setItem('denetim-geo-v1',j)}catch(e){}}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let lastReq=0;
+async function nomi(params){
+  const key=JSON.stringify(params);if(geoCache[key])return geoCache[key];
+  for(let attempt=0;attempt<2;attempt++){
+    const w=lastReq+1150-Date.now();if(w>0)await sleep(w);lastReq=Date.now();   // OSM kuralı: saniyede en fazla 1 istek
+    const u=new URL('https://nominatim.openstreetmap.org/search');
+    const all=Object.assign({format:'jsonv2',addressdetails:'0',limit:'4',countrycodes:'tr','accept-language':'tr'},params);
+    for(const k in all)if(all[k])u.searchParams.set(k,all[k]);
+    const r=await fetch(u.toString(),{headers:{'Accept':'application/json'}});
+    if(r.status===429||r.status>=500){await sleep(8000);continue}
+    if(!r.ok)throw new Error('http '+r.status);
+    const j=(await r.json()).map(x=>({lat:x.lat,lon:x.lon,c:x.category||x.class||'',a:x.addresstype||x.type||'',dn:x.display_name||''}));
+    geoCache[key]=j;saveGeoCache();return j;
+  }
+  throw new Error('busy');
+}
+function lvlOf(r){const a=r.a,c=r.c;
+  if(a==='house'||a==='building'||c==='building'||['amenity','shop','office','craft','tourism','healthcare'].includes(c))return'bina';
+  if(c==='highway'||a==='road')return'sokak';
+  if(['town','city','municipality','county','district','borough','city_district'].includes(a))return'ilce';
+  if(['province','state','region'].includes(a))return'il';
+  return'mah'}
+async function geocodeStop(s){
+  const txt=(s.addr||'').trim();if(!txt)return null;
+  const P=parseAddr(txt);
+  const ow=k=>{if(!k)return'';const i=P.nt.lastIndexOf(k);return capTR(i>=0?P.toks[i]:k)};
+  const ilW=ow(s.il),ilceW=ow(s.ilce),loc=[ilceW,ilW].filter(Boolean).join(', '),L=loc?', '+loc:'';
+  const mah=P.mah,Q=[],add=(lvl,p)=>Q.push({lvl,p});
+  if(P.street&&P.no&&loc){const sp={street:P.no+' '+P.street};if(ilceW)sp.city=ilceW;if(ilW)sp.state=ilW;add('bina',sp)}
+  if(P.street){if(mah)add('sokak',{q:`${P.street}, ${mah} Mahallesi${L}`});add('sokak',{q:`${P.street}${L}`})}
+  if(mah){add('mah',{q:`${mah} Mahallesi${L}`});add('mah',{q:`${mah}${L}`})}
+  if(!P.street&&!mah)add('bina',{q:txt});
+  if(loc)add('ilce',{q:loc});
+  const ok=r=>{const dn=normSp(r.dn);return(!s.ilce||dn.includes(s.ilce))&&(!s.il||dn.includes(s.il))};
+  let best=null;
+  for(const q of Q){
+    if(best&&RANK[best.lvl]<=RANK[q.lvl])break;
+    const res=await nomi(q.p);
+    for(const r of res){if(!ok(r))continue;let lv=lvlOf(r);if(RANK[lv]<RANK[q.lvl])lv=q.lvl;
+      if(!best||RANK[lv]<RANK[best.lvl])best={lat:+r.lat,lng:+r.lon,lvl:lv};break}
+  }
+  return best;
+}
+function applyGeo(s,b){s.gtried=true;if(!b)return;
+  if(b.lvl==='bina'||b.lvl==='sokak'){s.lat=b.lat;s.lng=b.lng;s.prec='exact';s.gl=b.lvl}else s.gm=b}
+const needsGeo=s=>s.prec!=='exact'&&!s.gtried&&!!(s.addr||'').trim();
+let geoRun=null;
+async function startGeocode(){
+  if(geoRun)return;const list=state.stops.filter(needsGeo);if(!list.length){renderGeoBar();return}
+  geoRun={total:list.length,done:0,stop:false};state.geoAuto=true;save();renderGeoBar();
+  let err='';
+  for(const s of list){
+    if(geoRun.stop)break;
+    if(!state.stops.includes(s)){geoRun.done++;continue}
+    try{applyGeo(s,await geocodeStop(s))}catch(e){err=navigator.onLine===false?'İnternet bağlantısı yok':'Adres araması şu an yapılamıyor';break}
+    geoRun.done++;
+    if(geoRun.done%3===0||geoRun.done===geoRun.total){resolveApprox();save();if(view==='points')renderList()}
+    renderGeoBar();
+  }
+  const stopped=geoRun.stop,found=list.filter(s=>s.prec==='exact').length;
+  geoRun=null;if(!err&&!stopped)state.geoAuto=false;
+  resolveApprox();save();renderAll();renderGeoBar();
+  toast(err?err+'. Bağlantı gelince "Adresleri haritada bul"a bas.':stopped?'Adres araması durduruldu':`Adres araması bitti: ${found}/${list.length} adres haritada bulundu`);
+}
+function renderGeoBar(){
+  const el=$('#geoBar');if(!el)return;
+  if(geoRun){const pct=Math.round(geoRun.done/geoRun.total*100),left=geoRun.total-geoRun.done;
+    el.innerHTML=`<div class="note"><strong>Adresler haritada aranıyor: ${geoRun.done} / ${geoRun.total}</strong><div class="bar"><span style="width:${pct}%"></span></div><span class="hint">Kalan yaklaşık ${Math.max(1,Math.ceil(left*2.5/60))} dk. Uygulama açık kalmalı; kapanırsa sonra kaldığı yerden devam eder.</span><div class="row"><button class="ghost small" data-geo="stop">Durdur</button></div></div>`;return}
+  const pend=state.stops.filter(needsGeo).length,miss=state.stops.filter(s=>s.prec!=='exact'&&s.gtried&&(s.addr||'').trim()).length;
+  el.innerHTML=pend?`<div class="note">${pend} adresin yeri henüz haritada aranmadı.<div class="row"><button class="small" data-geo="go">Adresleri haritada bul</button></div></div>`
+    :miss?`<div class="row"><button class="ghost small" data-geo="retry">Bulunamayan ${miss} adresi tekrar ara</button></div>`:'';
+}
+$('#geoBar').addEventListener('click',e=>{const a=e.target.dataset.geo;if(!a)return;
+  if(a==='stop'&&geoRun){geoRun.stop=true;state.geoAuto=false;save()}
+  if(a==='go')startGeocode();
+  if(a==='retry'){state.stops.forEach(s=>{if(s.prec!=='exact'&&s.gtried){s.gtried=false;delete s.gm}});startGeocode()}});
+
+// ---------- map editor ----------
+const TILE='https://tile.openstreetmap.org/{z}/{x}/{y}.png',TILE_ATTR='© OpenStreetMap';
+let edMap=null,edMarker=null,edCtx=null;
+function openEditor(ctx){
+  if(!window.L){toast('Harita yüklenemedi; internet bağlantısını kontrol et.');return}
+  edCtx=ctx;$('#edMsg').textContent=ctx.msg||'';$('#ed').hidden=false;
+  if(!edMap){edMap=L.map('edMap');L.tileLayer(TILE,{maxZoom:19,attribution:TILE_ATTR}).addTo(edMap);
+    edMap.on('click',e=>{if(edMarker){edMarker.setLatLng(e.latlng);edCtx.moved=true}})}
+  setTimeout(()=>{edMap.invalidateSize();edMap.setView([ctx.lat,ctx.lng],ctx.zoom||17);
+    if(edMarker)edMarker.remove();
+    edMarker=L.marker([ctx.lat,ctx.lng],{draggable:true,icon:L.divIcon({className:'pin',html:'<span></span>',iconSize:[30,30],iconAnchor:[15,36]})}).addTo(edMap);
+    edMarker.on('dragend',()=>{edCtx.moved=true})},60);
+}
+$('#edSave').onclick=()=>{if(!edMarker)return;const ll=edMarker.getLatLng();$('#ed').hidden=true;edCtx.onSave(ll.lat,ll.lng,!!edCtx.moved)};
+$('#edCancel').onclick=()=>{$('#ed').hidden=true};
+const ZOOM={bina:18,sokak:17,mah:15,ilce:13,il:11};
+const MSG={bina:'Bina bulundu. Doğruysa kaydet.',sokak:'Sokak bulundu; bina numarası haritada kayıtlı değil. İşaretçiyi binanın üstüne taşı.',
+  mah:'Yalnızca mahalle bulundu. İşaretçiyi doğru binaya taşı.',ilce:'Yalnızca ilçe bulundu. Yakınlaşıp doğru yere dokun.',il:'Yalnızca il bulundu. Yakınlaşıp doğru yere dokun.'};
+function fallbackCenter(t){const c=(t.ilce&&ILCE[t.il]&&ILCE[t.il][t.ilce])||IL[t.il];return c?{lat:c[0],lng:c[1],zoom:12}:{lat:39.0,lng:35.2,zoom:6}}
+$('#findAddr').onclick=async()=>{
+  const addr=$('#newAddr').value.trim(),name=$('#newName').value.trim();
+  if(!addr){toast('Önce adresi yaz.');$('#newAddr').focus();return}
+  const tmp={addr,il:'',ilce:'',mah:''};areaOf(tmp);
+  const btn=$('#findAddr');btn.disabled=true;btn.textContent='Aranıyor…';
+  let best=null,err=false;try{best=await geocodeStop(tmp)}catch(e){err=true}
+  btn.disabled=false;btn.textContent='Haritada bul';
+  const c=best?{lat:best.lat,lng:best.lng,zoom:ZOOM[best.lvl]}:fallbackCenter(tmp);
+  openEditor({...c,msg:best?MSG[best.lvl]:(err?'Arama yapılamadı (internet?). Haritada doğru yere dokun.':'Adres haritada bulunamadı. Yakınlaşıp doğru yere dokun.'),
+    onSave:(la,ln,moved)=>{
+      if(!addStop({name,addr,lat:la,lng:ln})){toast('Bu nokta zaten listede.');return}
+      const s=state.stops[state.stops.length-1];s.gl=moved||!best?'elle':best.lvl;s.gtried=true;
+      resolveApprox();save();renderList();updateNavBadges();$('#newAddr').value='';$('#newName').value='';
+      toast('Listeye eklendi. Planı yeniden hesaplamayı unutma.')}});
+};
+async function editStop(id){
+  const s=byId(id);if(!s)return;let p=pos(s),lvl=s.prec==='exact'?(s.gl||'bina'):s.prec;
+  if(!p||s.prec!=='exact'){try{const b=await geocodeStop(s);if(b&&(!p||RANK[b.lvl]<RANK[lvl])){p={lat:b.lat,lng:b.lng};lvl=b.lvl}}catch(e){}}
+  const c=p?{lat:p.lat,lng:p.lng,zoom:ZOOM[lvl]||15}:fallbackCenter(s);
+  openEditor({...c,msg:s.name+(s.addr?' — '+s.addr:''),onSave:(la,ln)=>{s.lat=la;s.lng=ln;s.prec='exact';s.gl='elle';s.gtried=true;delete s.gm;
+    resolveApprox();save();renderList();toast('Konum kaydedildi. Planı yeniden hesaplamayı unutma.')}});
+}
+
+// ---------- plan map ----------
+let pMap=null,pLayer=null;
+function numIcon(t,cls){return L.divIcon({className:'nm-ic '+(cls||''),html:`<span>${t}</span>`,iconSize:[26,26],iconAnchor:[13,13]})}
+function drawMap(groups,base,numbered){
+  if(!window.L){$('#lmap').hidden=true;$('#plot').style.display='';return plot('#plot',groups,base,numbered)}
+  $('#plot').style.display='none';$('#lmap').hidden=false;
+  if(!pMap){pMap=L.map('lmap');L.tileLayer(TILE,{maxZoom:19,attribution:TILE_ATTR}).addTo(pMap)}
+  if(pLayer)pLayer.remove();pLayer=L.layerGroup().addTo(pMap);
+  const b=[base.lat,base.lng],all=[b];
+  for(const gr of groups){
+    const line=[b,...gr.list.map(s=>{const p=pos(s);return[p.lat,p.lng]})];if(state.plan.round)line.push(b);
+    L.polyline(line,{color:gr.color,weight:numbered?4:3,opacity:.8}).addTo(pLayer);
+    gr.list.forEach((s,i)=>{const p=pos(s);all.push([p.lat,p.lng]);
+      const pop=`<b>${esc(s.name)}</b>${s.addr?'<br>'+esc(s.addr):''}`;
+      if(numbered)L.marker([p.lat,p.lng],{icon:numIcon(s.done?'✓':i+1,s.done?'done':(s.prec!=='exact'?'ap':''))}).bindPopup(pop).addTo(pLayer);
+      else L.circleMarker([p.lat,p.lng],{radius:5,color:gr.color,fillColor:gr.color,fillOpacity:s.done?.3:.9,weight:1}).bindPopup(pop).addTo(pLayer)});
+  }
+  L.marker(b,{icon:numIcon('B','base')}).bindPopup(esc(base.label)).addTo(pLayer);
+  setTimeout(()=>{pMap.invalidateSize();pMap.fitBounds(all,{padding:[26,26],maxZoom:16})},40);
+}
+
+// ================= boot =================
+function renderAll(){syncSettingsUI();renderView()}
+if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.AndroidBridge&&STANDALONE){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+loadLocal();renderAll();go(state.plan?'drive':(state.stops.length?'plan':'points'));initDb();initDownloads();
+let seen=false;try{seen=localStorage.getItem('denetim-intro')==='1'}catch(e){}
+const rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function endSplash(){const sp=$('#splash');if(!sp||sp.classList.contains('out'))return;sp.classList.add('out');setTimeout(()=>sp.remove(),500);
+  if(!seen&&!state.stops.length){$('#intro').hidden=false;$('#intro').scrollTop=0;$('#introGo').focus({preventScroll:true})}else setTimeout(maybeAsk,300)}
+$('#splash').addEventListener('click',endSplash);setTimeout(endSplash,rm?500:1900);
+setTimeout(()=>{renderGeoBar();if(state.geoAuto&&state.stops.some(needsGeo))startGeocode()},2500);
+$('#introGo').onclick=()=>{$('#intro').hidden=true;try{localStorage.setItem('denetim-intro','1')}catch(e){};go('points')};
+})();
+</script>
+</body>
+</html>
