@@ -17,6 +17,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 :root{
   --bg:#EDF1EE; --panel:#FFFFFF; --ink:#15303F; --muted:#5B6F7A; --line:#C9D3CF; --soft:#E3E9E6;
@@ -166,6 +168,16 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
 #intro li .ic svg{width:24px;height:24px;background:none}
 #intro li strong{display:block}
 #intro li span{color:var(--muted);font-size:.92rem}
+.lmap{height:340px;border-radius:10px;isolation:isolate;position:relative;z-index:0;background:var(--soft)}
+.nm-ic span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#F2B705;color:#15303F;font:800 11px Archivo,system-ui,sans-serif;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.nm-ic.ap span{background:#fff;color:#8A5A00;border:2px dashed #8A5A00}
+.nm-ic.done span{background:#2E7D4F;color:#fff}
+.nm-ic.base span{background:#15303F;color:#fff;border-radius:6px}
+.pin span{display:block;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#2756D6;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.addbox{background:var(--soft);border-radius:12px;padding:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.addbox label{font-weight:700}
+.sheet{max-height:92vh;overflow:auto}
+.or{text-align:center;color:var(--muted);font-size:.9rem;margin:14px 0 4px}
 @media (prefers-reduced-motion:reduce){#toast,#splash{transition:none}#splash *{animation:none!important;stroke-dashoffset:0!important}}
 </style>
 </head>
@@ -209,6 +221,7 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
     <section id="planOut" hidden>
       <div class="stats" id="stats"></div>
       <div class="tabs" id="tabs" role="tablist"></div>
+      <div id="lmap" class="lmap" hidden></div>
       <svg id="plot" viewBox="0 0 600 380" role="img" aria-label="Rota çizimi"></svg>
       <div id="dayBody"></div>
       <div class="row"><button class="ghost" id="export" hidden>Planı Excel olarak indir</button></div>
@@ -221,7 +234,14 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
     <section>
       <h2>Noktalar</h2>
       <p class="hint" id="emptyPts">Gideceğin yerlerin listesini yükle. Ad, adres, mahalle, ilçe, il, enlem/boylam veya Google Maps linki sütunları tanınır; hepsi gerekmez.</p>
-      <label class="drop" id="drop" style="margin-top:10px">
+      <div class="addbox">
+        <label for="newAddr">Adres yaz, haritada işaretleyeyim</label>
+        <input type="text" id="newName" placeholder="İşletme adı (isteğe bağlı)">
+        <textarea id="newAddr" rows="2" style="min-height:64px" placeholder="İstasyon Mah. Koray Sok. Deniz Apt. No:7-9 Çerkezköy/Tekirdağ"></textarea>
+        <button class="big" id="findAddr">Haritada bul</button>
+      </div>
+      <p class="or">veya listenin tamamını Excel'den yükle</p>
+      <label class="drop" id="drop">
         <input type="file" id="file" accept=".xlsx,.xls,.csv">
         <strong>Excel dosyası seç</strong><br><span class="hint">.xlsx, .xls veya .csv</span>
       </label>
@@ -235,6 +255,7 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
         <button class="ghost small" id="sample">Örnek veriyle dene</button>
         <button class="ghost small" id="clear">Listeyi temizle</button>
       </div>
+      <div id="geoBar"></div>
       <div id="counts" class="counts"></div>
       <div id="approxNote"></div>
       <input type="search" id="q" placeholder="Listede ara" style="margin-top:8px" hidden>
@@ -265,6 +286,16 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
     <button class="okbtn" id="askYes">✓ Evet, tamamlandı</button>
     <button class="ghost" id="askNo">Hayır, henüz bitmedi</button>
     <button class="ghost" id="askSkip">Sonraya bırak</button>
+  </div>
+</div>
+<div class="modal" id="ed" hidden role="dialog" aria-modal="true" aria-labelledby="edT">
+  <div class="sheet">
+    <h2 id="edT">Konumu onayla</h2>
+    <p class="hint" id="edMsg" style="margin:0"></p>
+    <div id="edMap" class="lmap" style="height:320px"></div>
+    <p class="hint" style="margin:0">Yanlışsa mavi işaretçiyi sürükle ya da haritada doğru yere dokun.</p>
+    <button class="okbtn" id="edSave">Bu konumu kaydet</button>
+    <button class="ghost" id="edCancel">Vazgeç</button>
   </div>
 </div>
 <div id="toast" role="status"></div>
@@ -314,6 +345,7 @@ karaman:[37.18,33.22],kirikkale:[39.85,33.51],batman:[37.88,41.13],sirnak:[37.52
 igdir:[39.92,44.04],yalova:[40.66,29.27],karabuk:[41.20,32.62],kilis:[36.72,37.12],osmaniye:[37.07,36.25],duzce:[40.84,31.16]};
 const IL_ALIAS={afyon:'afyonkarahisar',antep:'gaziantep',antakya:'hatay',izmit:'kocaeli',maras:'kahramanmaras',adapazari:'sakarya',urfa:'sanliurfa',eyup:'eyupsultan'};
 const DAYC=['#2756D6','#D9480F','#2E8B57','#8E44AD','#C2185B','#00838F','#B8860B','#5D4037'];
+const GL={bina:'Bina bulundu',sokak:'Sokak bulundu',mah:'Mahalle (onaylı)',ilce:'İlçe (onaylı)',il:'İl (onaylı)',elle:'Haritada işaretli'};
 const PREC={exact:'Kesin',mah:'≈ Mahalle',ilce:'≈ İlçe',il:'≈ İl',none:'Konumsuz'};
 
 // ================= state =================
@@ -384,6 +416,7 @@ function mahOf(text){
   const out=[];for(let i=k-1;i>=0&&out.length<2;i--){if(stop.has(w[i])||/^\d+$/.test(w[i]))break;out.unshift(w[i])}
   return out.join(' ');
 }
+const AREA_STOP=new Set(['mah','mahallesi','mh','mahalle','sok','sokak','sokagi','sk','cad','cadde','caddesi','cd','bulvar','bulvari','blv','yolu','no','apt','apartmani','apartman','daire','kat','blok','sitesi','site','is','merkezi','plaza','turkiye']);
 function areaOf(s){ // fill s.il, s.ilce, s.mah from explicit fields or address text
   const txt=s.addr||'';
   let il=s.il?(IL_ALIAS[norm(s.il)]||norm(s.il)):'';
@@ -391,6 +424,8 @@ function areaOf(s){ // fill s.il, s.ilce, s.mah from explicit fields or address 
   if(!ilce){let bi=-1;for(const p in ILCE){if(il&&il!==p)continue;const h=lastHitI(txt,ILCE[p]);if(h.k&&h.i>bi){bi=h.i;ilce=h.k;if(!s.il)il=p}}}
   else if(!il){for(const p in ILCE)if(ILCE[p][ilce]){il=p;break}}
   if(!il)il=lastHit(txt,IL);
+  if(!ilce&&il){const w=normSp(txt).split(' '),k=w.lastIndexOf(il),pw=k>0?w[k-1]:'';
+    if(pw&&pw.length>2&&!AREA_STOP.has(pw)&&!/^\d/.test(pw)&&!IL[pw])ilce=pw}
   let mah=s.mah?normSp(s.mah).replace(/\b(mahallesi|mah|mh|mahalle)\b/g,'').trim():mahOf(txt);
   s.il=il;s.ilce=ilce;s.mah=mah;
 }
@@ -405,6 +440,7 @@ function addStop(o){
 }
 
 // approximate positions for stops without coordinates
+const RANK={bina:0,sokak:1,mah:2,ilce:3,il:4,none:5};
 function resolveApprox(){
   const acc=(m,k,s)=>{if(!k)return;const a=m[k]||(m[k]={la:0,ln:0,n:0,ilces:new Set()});a.la+=s.lat;a.ln+=s.lng;a.n++;a.ilces.add(s.ilce)};
   const mahI={},mah={},ilce={},il={};
@@ -423,6 +459,7 @@ function resolveApprox(){
     else if(s.ilce&&ILCE[s.il]&&ILCE[s.il][s.ilce]){p=ILCE[s.il][s.ilce];pr='ilce'}
     else if(s.il&&il[s.il]&&il[s.il].n>=2){p=avg(il[s.il]);pr='il'}
     else if(s.il&&IL[s.il]){p=IL[s.il];pr='il'}
+    if(s.gm&&RANK[s.gm.lvl]<=RANK[pr]){p=[s.gm.lat,s.gm.lng];pr=s.gm.lvl}
     s.prec=pr;s.alat=p?p[0]:null;s.alng=p?p[1]:null;
   }
 }
@@ -489,6 +526,7 @@ function fromText(t){
 }
 function afterImport(added){
   resolveApprox();state.plan=null;save();renderAll();
+  if(state.stops.some(needsGeo)){startGeocode();return}
   const a=state.stops.filter(s=>s.prec!=='exact'&&s.prec!=='none').length,n=state.stops.filter(s=>s.prec==='none').length;
   toast(`${added} nokta eklendi`+(a?`, ${a} yaklaşık konumlu`:'')+(n?`, ${n} konumsuz`:''));
 }
@@ -610,7 +648,7 @@ function renderList(){
   $('#counts').innerHTML=!c.all?'':[['all','Tümü'],['exact','Kesin konum'],['approx','Yaklaşık konum'],['none','Konumu yok']]
     .map(([k,l])=>`<button data-f="${k}" class="${filter===k?'on':''}">${l}<i>${c[k]}</i></button>`).join('');
   $('#q').hidden=!c.all;
-  $('#approxNote').innerHTML=(c.approx||c.none)?`<div class="note">${c.approx?`<p><span class="chip c-approx">Yaklaşık</span> <strong>${c.approx} nokta</strong> haritada işletme olarak yok ya da koordinatı yok. Adresindeki mahalle/ilçeye göre yerleştirildi, Google Maps bunlara açık adresle gider.</p>`:''}${c.none?`<p><span class="chip c-none">Konumu yok</span> <strong>${c.none} nokta</strong> adresinden bulunamadı ve plana girmez.</p>`:''}<p class="hint" style="margin:0">Düzeltmek için: noktanın altındaki kutuya Google Maps linkini veya koordinatı yapıştır.</p></div>`:'';
+  $('#approxNote').innerHTML=(c.approx||c.none)?`<div class="note">${c.approx?`<p><span class="chip c-approx">Yaklaşık</span> <strong>${c.approx} nokta</strong> haritada işletme olarak yok ya da koordinatı yok. Adresindeki mahalle/ilçeye göre yerleştirildi, Google Maps bunlara açık adresle gider.</p>`:''}${c.none?`<p><span class="chip c-none">Konumu yok</span> <strong>${c.none} nokta</strong> adresinden bulunamadı ve plana girmez.</p>`:''}<p class="hint" style="margin:0">Düzeltmek için noktanın altındaki "Haritada düzelt"e dokun ve doğru yere işaretle.</p></div>`:'';
   const q=normSp($('#q').value);
   let arr=state.stops.filter(s=>filter==='all'||(filter==='exact'&&s.prec==='exact')||(filter==='none'&&s.prec==='none')||(filter==='approx'&&s.prec!=='exact'&&s.prec!=='none'));
   if(q)arr=arr.filter(s=>normSp(s.name+' '+s.addr).includes(q));
@@ -618,7 +656,7 @@ function renderList(){
   $('#list').innerHTML=arr.slice(0,shown).map(s=>{const cls=s.prec==='exact'?'c-exact':s.prec==='none'?'c-none':'c-approx';
     return `<div class="item ${s.done?'done':''}"><label class="tick"><input type="checkbox" data-done="${s.id}" ${s.done?'checked':''} aria-label="Tamamlandı"></label>
       <div><div class="nm">${esc(s.name)}</div>${s.addr?`<div class="ad">${esc(s.addr)}</div>`:''}
-      <div class="meta"><span class="chip ${cls}">${PREC[s.prec]}</span><a href="${searchUrl(s)}" target="_blank" rel="noopener">Haritada gör</a></div></div>
+      <div class="meta"><span class="chip ${cls}">${s.prec==='exact'&&s.gl?GL[s.gl]:PREC[s.prec]}</span><button class="linkish" style="color:var(--route);font-size:.85rem" data-edit="${s.id}">Haritada düzelt</button></div></div>
       <button class="x" data-del="${s.id}" aria-label="Listeden sil">×</button>
       ${s.prec!=='exact'?`<div class="fix"><input type="text" placeholder="Google Maps linki veya 41.01, 28.97" data-fix="${s.id}"><button class="small" data-fixbtn="${s.id}">Kaydet</button></div>`:''}</div>`}).join('');
   $('#moreRow').hidden=arr.length<=shown;
@@ -629,9 +667,10 @@ $('#more').onclick=()=>{shown+=100;renderList()};
 $('#list').addEventListener('click',e=>{
   const d=e.target.dataset;
   if(d.del){state.stops=state.stops.filter(s=>s.id!=d.del);resolveApprox();save();renderList();updateNavBadges()}
+  if(d.edit){editStop(+d.edit);return}
   if(d.fixbtn){const inp=document.querySelector(`[data-fix="${d.fixbtn}"]`),c=findCoords(inp.value);
     if(!c){toast('Koordinat bulunamadı. Haritada noktaya uzun bas, üstte çıkan sayıları kopyala.');return}
-    const s=byId(d.fixbtn);s.lat=c.lat;s.lng=c.lng;s.prec='exact';resolveApprox();save();renderList();toast('Konum kaydedildi')}
+    const s=byId(d.fixbtn);s.lat=c.lat;s.lng=c.lng;s.prec='exact';s.gl='elle';resolveApprox();save();renderList();toast('Konum kaydedildi')}
 });
 $('#list').addEventListener('change',e=>{const id=e.target.dataset.done;if(!id)return;const s=byId(id);setDone(s,e.target.checked);
   toast(s.done?'Tamamlananlara eklendi':'Tamamlananlardan çıkarıldı');renderList();updateNavBadges()});
@@ -651,6 +690,7 @@ function tryPos(ms){return new Promise(res=>{if(!navigator.geolocation)return re
   try{navigator.geolocation.getCurrentPosition(p=>{if(done)return;done=true;clearTimeout(t);res({lat:p.coords.latitude,lng:p.coords.longitude})},
     ()=>{if(done)return;done=true;clearTimeout(t);res(null)},{enableHighAccuracy:false,timeout:ms,maximumAge:600000})}catch(e){done=true;clearTimeout(t);res(null)}})}
 $('#calc').onclick=async()=>{
+  if(geoRun){toast(`Adresler hâlâ aranıyor (${geoRun.done}/${geoRun.total}). Bitince planı hesapla.`);go('points');return}
   readSettings();const st=state.settings;
   const active=state.stops.filter(s=>pos(s)&&!(st.skipDone&&s.done));
   if(!active.length){toast('Plana girecek nokta yok. Önce Noktalar sekmesinden listeni yükle.');return}
@@ -721,13 +761,13 @@ function renderPlan(){
   $('#tabs').innerHTML=(days.length>1?`<button class="tab ${planSel===-1?'on':''}" data-day="-1">Tüm günler</button>`:'')+
     days.map((d,i)=>`<button class="tab ${planSel===i?'on':''}" data-day="${i}" style="--c:${DAYC[i%8]}">${i+1}. gün${d.length&&d.every(s=>s.done)?' ✓':''}</button>`).join('');
   if(planSel===-1){
-    plot('#plot',days.map((d,i)=>({list:d,color:DAYC[i%8]})),p.base,false);
+    drawMap(days.map((d,i)=>({list:d,color:DAYC[i%8]})),p.base,false);
     $('#dayBody').innerHTML=days.map((d,i)=>{const dn=d.filter(s=>s.done).length;return `<div class="daysum"><span class="sw" style="background:${DAYC[i%8]}"></span>
       <button class="linkish" data-day="${i}"><strong>${i+1}. gün</strong><br><span class="hint">${d.length} durak · ${dayKm(d,p.base,p.round).toFixed(0)} km · ${dn}/${d.length} tamam</span></button>
       <button class="small ${dn===d.length&&d.length?'ghost':''}" data-start="${i}">${dn===d.length&&d.length?'Bitti':'Bu günle yola çık'}</button></div>`}).join('');
     return;
   }
-  const d=days[planSel];plot('#plot',[{list:d,color:DAYC[planSel%8]}],p.base,true);
+  const d=days[planSel];drawMap([{list:d,color:DAYC[planSel%8]}],p.base,true);
   let h=`<div class="row" style="margin:12px 0"><button class="big" data-start="${planSel}">${planSel+1}. günle yola çık</button></div><ol class="route">`;
   let prev=p.base;
   d.forEach((s,i)=>{const q=pos(s),km=hav(prev,q);prev=q;const ap=s.prec!=='exact';
@@ -841,6 +881,166 @@ $('#export').onclick=async()=>{
   catch(e){if(e&&e.code==='declined')return;toast('Excel kaydedilemedi')}
 };
 
+// ================= address → map (OpenStreetMap / Nominatim) =================
+const MAHK=new Set(['mah','mahallesi','mh','mahalle','mahalesi']);
+const STRK={sok:'Sokak',sokak:'Sokak',sokagi:'Sokağı',sk:'Sokak',cad:'Caddesi',cadde:'Caddesi',caddesi:'Caddesi',cd:'Caddesi',bulvar:'Bulvarı',bulvari:'Bulvarı',blv:'Bulvarı',yolu:'Yolu',kume:'Küme Evler',sokaklari:'Sokakları'};
+const NOK=new Set(['no','numara','nu','apt','apartmani','apartman','daire','kat','d','blok','sitesi','site']);
+const capTR=t=>String(t||'').split(' ').map(w=>w?w.charAt(0).toLocaleUpperCase('tr-TR')+w.slice(1).toLocaleLowerCase('tr-TR'):w).join(' ');
+function parseAddr(text){
+  const raw=String(text||'').replace(/([,\/;()])/g,' $1 ').replace(/\b(no|No|NO)\s*[:.]\s*/g,'No ').replace(/:/g,' ');
+  const toks=raw.split(/\s+/).filter(Boolean),nt=toks.map(x=>norm(x));
+  const back=(k,max)=>{const out=[];for(let i=k-1;i>=0&&out.length<max;i--){const n=nt[i];if(!n||MAHK.has(n)||STRK[n]||NOK.has(n)||IL[n])break;out.unshift(toks[i])}return out.join(' ')};
+  let street='',no='',mah='';
+  const si=nt.findIndex((n,i)=>i>0&&STRK[n]);
+  if(si>0){const nm=back(si,4);if(nm)street=nm+' '+STRK[nt[si]];
+    for(let i=si+1;i<Math.min(nt.length,si+7);i++){if(['d','daire','kat','blok'].includes(nt[i])){i++;continue}const m=toks[i].match(/^(\d+)/);if(m){no=m[1];break}if(MAHK.has(nt[i])||STRK[nt[i]])break}}
+  if(!no){const m=String(text).match(/\bno\s*[:.]?\s*(\d+)/i);if(m)no=m[1]}
+  const mi=nt.findIndex((n,i)=>i>0&&MAHK.has(n));if(mi>0)mah=back(mi,3);
+  return{street:capTR(street),no,mah:capTR(mah),toks,nt};
+}
+let geoCache={};try{geoCache=JSON.parse(localStorage.getItem('denetim-geo-v1')||'{}')}catch(e){}
+function saveGeoCache(){try{const j=JSON.stringify(geoCache);if(j.length<3e6)localStorage.setItem('denetim-geo-v1',j)}catch(e){}}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let lastReq=0;
+async function nomi(params){
+  const key=JSON.stringify(params);if(geoCache[key])return geoCache[key];
+  for(let attempt=0;attempt<2;attempt++){
+    const w=lastReq+1150-Date.now();if(w>0)await sleep(w);lastReq=Date.now();   // OSM kuralı: saniyede en fazla 1 istek
+    const u=new URL('https://nominatim.openstreetmap.org/search');
+    const all=Object.assign({format:'jsonv2',addressdetails:'0',limit:'4',countrycodes:'tr','accept-language':'tr'},params);
+    for(const k in all)if(all[k])u.searchParams.set(k,all[k]);
+    const r=await fetch(u.toString(),{headers:{'Accept':'application/json'}});
+    if(r.status===429||r.status>=500){await sleep(8000);continue}
+    if(!r.ok)throw new Error('http '+r.status);
+    const j=(await r.json()).map(x=>({lat:x.lat,lon:x.lon,c:x.category||x.class||'',a:x.addresstype||x.type||'',dn:x.display_name||''}));
+    geoCache[key]=j;saveGeoCache();return j;
+  }
+  throw new Error('busy');
+}
+function lvlOf(r){const a=r.a,c=r.c;
+  if(a==='house'||a==='building'||c==='building'||['amenity','shop','office','craft','tourism','healthcare'].includes(c))return'bina';
+  if(c==='highway'||a==='road')return'sokak';
+  if(['town','city','municipality','county','district','borough','city_district'].includes(a))return'ilce';
+  if(['province','state','region'].includes(a))return'il';
+  return'mah'}
+async function geocodeStop(s){
+  const txt=(s.addr||'').trim();if(!txt)return null;
+  const P=parseAddr(txt);
+  const ow=k=>{if(!k)return'';const i=P.nt.lastIndexOf(k);return capTR(i>=0?P.toks[i]:k)};
+  const ilW=ow(s.il),ilceW=ow(s.ilce),loc=[ilceW,ilW].filter(Boolean).join(', '),L=loc?', '+loc:'';
+  const mah=P.mah,Q=[],add=(lvl,p)=>Q.push({lvl,p});
+  if(P.street&&P.no&&loc){const sp={street:P.no+' '+P.street};if(ilceW)sp.city=ilceW;if(ilW)sp.state=ilW;add('bina',sp)}
+  if(P.street){if(mah)add('sokak',{q:`${P.street}, ${mah} Mahallesi${L}`});add('sokak',{q:`${P.street}${L}`})}
+  if(mah){add('mah',{q:`${mah} Mahallesi${L}`});add('mah',{q:`${mah}${L}`})}
+  if(!P.street&&!mah)add('bina',{q:txt});
+  if(loc)add('ilce',{q:loc});
+  const ok=r=>{const dn=normSp(r.dn);return(!s.ilce||dn.includes(s.ilce))&&(!s.il||dn.includes(s.il))};
+  let best=null;
+  for(const q of Q){
+    if(best&&RANK[best.lvl]<=RANK[q.lvl])break;
+    const res=await nomi(q.p);
+    for(const r of res){if(!ok(r))continue;let lv=lvlOf(r);if(RANK[lv]<RANK[q.lvl])lv=q.lvl;
+      if(!best||RANK[lv]<RANK[best.lvl])best={lat:+r.lat,lng:+r.lon,lvl:lv};break}
+  }
+  return best;
+}
+function applyGeo(s,b){s.gtried=true;if(!b)return;
+  if(b.lvl==='bina'||b.lvl==='sokak'){s.lat=b.lat;s.lng=b.lng;s.prec='exact';s.gl=b.lvl}else s.gm=b}
+const needsGeo=s=>s.prec!=='exact'&&!s.gtried&&!!(s.addr||'').trim();
+let geoRun=null;
+async function startGeocode(){
+  if(geoRun)return;const list=state.stops.filter(needsGeo);if(!list.length){renderGeoBar();return}
+  geoRun={total:list.length,done:0,stop:false};state.geoAuto=true;save();renderGeoBar();
+  let err='';
+  for(const s of list){
+    if(geoRun.stop)break;
+    if(!state.stops.includes(s)){geoRun.done++;continue}
+    try{applyGeo(s,await geocodeStop(s))}catch(e){err=navigator.onLine===false?'İnternet bağlantısı yok':'Adres araması şu an yapılamıyor';break}
+    geoRun.done++;
+    if(geoRun.done%3===0||geoRun.done===geoRun.total){resolveApprox();save();if(view==='points')renderList()}
+    renderGeoBar();
+  }
+  const stopped=geoRun.stop,found=list.filter(s=>s.prec==='exact').length;
+  geoRun=null;if(!err&&!stopped)state.geoAuto=false;
+  resolveApprox();save();renderAll();renderGeoBar();
+  toast(err?err+'. Bağlantı gelince "Adresleri haritada bul"a bas.':stopped?'Adres araması durduruldu':`Adres araması bitti: ${found}/${list.length} adres haritada bulundu`);
+}
+function renderGeoBar(){
+  const el=$('#geoBar');if(!el)return;
+  if(geoRun){const pct=Math.round(geoRun.done/geoRun.total*100),left=geoRun.total-geoRun.done;
+    el.innerHTML=`<div class="note"><strong>Adresler haritada aranıyor: ${geoRun.done} / ${geoRun.total}</strong><div class="bar"><span style="width:${pct}%"></span></div><span class="hint">Kalan yaklaşık ${Math.max(1,Math.ceil(left*2.5/60))} dk. Uygulama açık kalmalı; kapanırsa sonra kaldığı yerden devam eder.</span><div class="row"><button class="ghost small" data-geo="stop">Durdur</button></div></div>`;return}
+  const pend=state.stops.filter(needsGeo).length,miss=state.stops.filter(s=>s.prec!=='exact'&&s.gtried&&(s.addr||'').trim()).length;
+  el.innerHTML=pend?`<div class="note">${pend} adresin yeri henüz haritada aranmadı.<div class="row"><button class="small" data-geo="go">Adresleri haritada bul</button></div></div>`
+    :miss?`<div class="row"><button class="ghost small" data-geo="retry">Bulunamayan ${miss} adresi tekrar ara</button></div>`:'';
+}
+$('#geoBar').addEventListener('click',e=>{const a=e.target.dataset.geo;if(!a)return;
+  if(a==='stop'&&geoRun){geoRun.stop=true;state.geoAuto=false;save()}
+  if(a==='go')startGeocode();
+  if(a==='retry'){state.stops.forEach(s=>{if(s.prec!=='exact'&&s.gtried){s.gtried=false;delete s.gm}});startGeocode()}});
+
+// ---------- map editor ----------
+const TILE='https://tile.openstreetmap.org/{z}/{x}/{y}.png',TILE_ATTR='© OpenStreetMap';
+let edMap=null,edMarker=null,edCtx=null;
+function openEditor(ctx){
+  if(!window.L){toast('Harita yüklenemedi; internet bağlantısını kontrol et.');return}
+  edCtx=ctx;$('#edMsg').textContent=ctx.msg||'';$('#ed').hidden=false;
+  if(!edMap){edMap=L.map('edMap');L.tileLayer(TILE,{maxZoom:19,attribution:TILE_ATTR}).addTo(edMap);
+    edMap.on('click',e=>{if(edMarker){edMarker.setLatLng(e.latlng);edCtx.moved=true}})}
+  setTimeout(()=>{edMap.invalidateSize();edMap.setView([ctx.lat,ctx.lng],ctx.zoom||17);
+    if(edMarker)edMarker.remove();
+    edMarker=L.marker([ctx.lat,ctx.lng],{draggable:true,icon:L.divIcon({className:'pin',html:'<span></span>',iconSize:[30,30],iconAnchor:[15,36]})}).addTo(edMap);
+    edMarker.on('dragend',()=>{edCtx.moved=true})},60);
+}
+$('#edSave').onclick=()=>{if(!edMarker)return;const ll=edMarker.getLatLng();$('#ed').hidden=true;edCtx.onSave(ll.lat,ll.lng,!!edCtx.moved)};
+$('#edCancel').onclick=()=>{$('#ed').hidden=true};
+const ZOOM={bina:18,sokak:17,mah:15,ilce:13,il:11};
+const MSG={bina:'Bina bulundu. Doğruysa kaydet.',sokak:'Sokak bulundu; bina numarası haritada kayıtlı değil. İşaretçiyi binanın üstüne taşı.',
+  mah:'Yalnızca mahalle bulundu. İşaretçiyi doğru binaya taşı.',ilce:'Yalnızca ilçe bulundu. Yakınlaşıp doğru yere dokun.',il:'Yalnızca il bulundu. Yakınlaşıp doğru yere dokun.'};
+function fallbackCenter(t){const c=(t.ilce&&ILCE[t.il]&&ILCE[t.il][t.ilce])||IL[t.il];return c?{lat:c[0],lng:c[1],zoom:12}:{lat:39.0,lng:35.2,zoom:6}}
+$('#findAddr').onclick=async()=>{
+  const addr=$('#newAddr').value.trim(),name=$('#newName').value.trim();
+  if(!addr){toast('Önce adresi yaz.');$('#newAddr').focus();return}
+  const tmp={addr,il:'',ilce:'',mah:''};areaOf(tmp);
+  const btn=$('#findAddr');btn.disabled=true;btn.textContent='Aranıyor…';
+  let best=null,err=false;try{best=await geocodeStop(tmp)}catch(e){err=true}
+  btn.disabled=false;btn.textContent='Haritada bul';
+  const c=best?{lat:best.lat,lng:best.lng,zoom:ZOOM[best.lvl]}:fallbackCenter(tmp);
+  openEditor({...c,msg:best?MSG[best.lvl]:(err?'Arama yapılamadı (internet?). Haritada doğru yere dokun.':'Adres haritada bulunamadı. Yakınlaşıp doğru yere dokun.'),
+    onSave:(la,ln,moved)=>{
+      if(!addStop({name,addr,lat:la,lng:ln})){toast('Bu nokta zaten listede.');return}
+      const s=state.stops[state.stops.length-1];s.gl=moved||!best?'elle':best.lvl;s.gtried=true;
+      resolveApprox();save();renderList();updateNavBadges();$('#newAddr').value='';$('#newName').value='';
+      toast('Listeye eklendi. Planı yeniden hesaplamayı unutma.')}});
+};
+async function editStop(id){
+  const s=byId(id);if(!s)return;let p=pos(s),lvl=s.prec==='exact'?(s.gl||'bina'):s.prec;
+  if(!p||s.prec!=='exact'){try{const b=await geocodeStop(s);if(b&&(!p||RANK[b.lvl]<RANK[lvl])){p={lat:b.lat,lng:b.lng};lvl=b.lvl}}catch(e){}}
+  const c=p?{lat:p.lat,lng:p.lng,zoom:ZOOM[lvl]||15}:fallbackCenter(s);
+  openEditor({...c,msg:s.name+(s.addr?' — '+s.addr:''),onSave:(la,ln)=>{s.lat=la;s.lng=ln;s.prec='exact';s.gl='elle';s.gtried=true;delete s.gm;
+    resolveApprox();save();renderList();toast('Konum kaydedildi. Planı yeniden hesaplamayı unutma.')}});
+}
+
+// ---------- plan map ----------
+let pMap=null,pLayer=null;
+function numIcon(t,cls){return L.divIcon({className:'nm-ic '+(cls||''),html:`<span>${t}</span>`,iconSize:[26,26],iconAnchor:[13,13]})}
+function drawMap(groups,base,numbered){
+  if(!window.L){$('#lmap').hidden=true;$('#plot').style.display='';return plot('#plot',groups,base,numbered)}
+  $('#plot').style.display='none';$('#lmap').hidden=false;
+  if(!pMap){pMap=L.map('lmap');L.tileLayer(TILE,{maxZoom:19,attribution:TILE_ATTR}).addTo(pMap)}
+  if(pLayer)pLayer.remove();pLayer=L.layerGroup().addTo(pMap);
+  const b=[base.lat,base.lng],all=[b];
+  for(const gr of groups){
+    const line=[b,...gr.list.map(s=>{const p=pos(s);return[p.lat,p.lng]})];if(state.plan.round)line.push(b);
+    L.polyline(line,{color:gr.color,weight:numbered?4:3,opacity:.8}).addTo(pLayer);
+    gr.list.forEach((s,i)=>{const p=pos(s);all.push([p.lat,p.lng]);
+      const pop=`<b>${esc(s.name)}</b>${s.addr?'<br>'+esc(s.addr):''}`;
+      if(numbered)L.marker([p.lat,p.lng],{icon:numIcon(s.done?'✓':i+1,s.done?'done':(s.prec!=='exact'?'ap':''))}).bindPopup(pop).addTo(pLayer);
+      else L.circleMarker([p.lat,p.lng],{radius:5,color:gr.color,fillColor:gr.color,fillOpacity:s.done?.3:.9,weight:1}).bindPopup(pop).addTo(pLayer)});
+  }
+  L.marker(b,{icon:numIcon('B','base')}).bindPopup(esc(base.label)).addTo(pLayer);
+  setTimeout(()=>{pMap.invalidateSize();pMap.fitBounds(all,{padding:[26,26],maxZoom:16})},40);
+}
+
 // ================= boot =================
 function renderAll(){syncSettingsUI();renderView()}
 if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.AndroidBridge&&STANDALONE){navigator.serviceWorker.register('sw.js').catch(()=>{})}
@@ -850,6 +1050,7 @@ const rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function endSplash(){const sp=$('#splash');if(!sp||sp.classList.contains('out'))return;sp.classList.add('out');setTimeout(()=>sp.remove(),500);
   if(!seen&&!state.stops.length){$('#intro').hidden=false;$('#intro').scrollTop=0;$('#introGo').focus({preventScroll:true})}else setTimeout(maybeAsk,300)}
 $('#splash').addEventListener('click',endSplash);setTimeout(endSplash,rm?500:1900);
+setTimeout(()=>{renderGeoBar();if(state.geoAuto&&state.stops.some(needsGeo))startGeocode()},2500);
 $('#introGo').onclick=()=>{$('#intro').hidden=true;try{localStorage.setItem('denetim-intro','1')}catch(e){};go('points')};
 })();
 </script>
