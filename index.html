@@ -290,6 +290,7 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
     <section id="driveBody"></section>
   </div>
   <p id="sync" style="text-align:center;margin:14px 0 0">Kayıt: bu cihaz</p>
+  <p id="ver" class="hint" style="text-align:center;margin:2px 0 0;font-size:.78rem"></p>
 </main>
 
 <nav id="nav" aria-label="Bölümler">
@@ -346,6 +347,10 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
     <p class="hint" style="margin:0">Açık rotan silinmez, Rotalarım'da ayrı durur. Yeni rota onunla karışmaz.</p>
     <button class="ghost" id="nrCancel">Vazgeç</button>
   </div>
+</div>
+<div id="upd" hidden style="position:fixed;left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));z-index:45;background:var(--route);color:#fff;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 8px 24px rgba(0,0,0,.25)">
+  <span><strong>Yeni sürüm hazır</strong><br><span style="font-size:.88rem;opacity:.9">Rotaların silinmez.</span></span>
+  <button id="updGo" style="background:#fff;color:#15303F">Güncelle</button>
 </div>
 <div id="toast" role="status"></div>
 <div id="splash" aria-hidden="true"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#15303F"/><path class="route" d="M118 400 C 170 330, 240 440, 316 380" stroke="#6F98FF" stroke-width="30" fill="none" stroke-linecap="round" stroke-dasharray="0 50"/><circle class="route" cx="118" cy="400" r="34" fill="#6F98FF"/><path class="pin" d="M340 400 C 300 336, 244 286, 244 206 A96 96 0 1 1 436 206 C 436 286 380 336 340 400Z" fill="#F2B705"/><path class="chk" d="M296 206 l32 32 l60 -64" stroke="#15303F" stroke-width="28" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="txt" style="text-align:center"><h1>Denetim Rotası</h1><p>Yakın duraklar, kısa yollar</p></div></div>
@@ -1321,7 +1326,23 @@ function drawMap(groups,base,numbered){
 
 // ================= boot =================
 function renderAll(){syncSettingsUI();renderView()}
-if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.AndroidBridge&&STANDALONE){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+const APP_VERSION='2026.10.22-7';
+$('#ver').textContent='Sürüm '+APP_VERSION;
+const WEB=location.protocol==='https:'&&!window.AndroidBridge&&STANDALONE;
+if(WEB&&'serviceWorker' in navigator){navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{try{r.update()}catch(e){}}).catch(()=>{})}
+// Checks the website for a newer index.html (bypassing every cache) and offers a one-tap update
+async function checkUpdate(){
+  if(!WEB)return;
+  try{const r=await fetch('index.html?v='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const m=(await r.text()).match(/const APP_VERSION='([^']+)'/);
+    if(m&&m[1]!==APP_VERSION)$('#upd').hidden=false}catch(e){}
+}
+$('#updGo').onclick=async()=>{$('#updGo').textContent='Güncelleniyor…';
+  try{if('serviceWorker' in navigator){for(const r of await navigator.serviceWorker.getRegistrations())await r.unregister()}}catch(e){}
+  try{if(window.caches){for(const k of await caches.keys())await caches.delete(k)}}catch(e){}
+  location.replace(location.pathname+'?v='+Date.now())};
+setTimeout(checkUpdate,3000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(checkUpdate,1500)});
 function fixAreas(stops){let n=0;for(const x of stops){if(x.ilce==='mayis'||(/\b(19|ondokuz)\s*may[ıi]s\b/i.test(x.addr||'')&&x.ilce!=='ondokuzmayis')){
     x.ilce='';x.il='';x.mah='';areaOf(x);if(x.prec!=='exact'){x.gtried=false;delete x.gm}n++}}return n}
 loadLocal();{const fixed=fixAreas(state.stops)+state.lists.reduce((a,l)=>a+fixAreas(l.stops),0);
