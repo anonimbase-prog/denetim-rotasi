@@ -38,6 +38,7 @@
 }
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);
   font-family:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.5}
 main{max-width:760px;margin:0 auto;padding:16px 14px calc(96px + env(safe-area-inset-bottom,0px))}
@@ -251,7 +252,7 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
     <section>
       <h2>Noktalar</h2>
       <div class="seg" id="modeSeg" hidden>
-        <button data-mode="new">Yeni rota</button>
+        <button data-mode="new">Yeni rota oluştur</button>
         <button data-mode="add">Açık rotaya ekle</button>
       </div>
       <div id="modeNote"></div>
@@ -277,9 +278,9 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
         <button class="ghost small" id="sample">Örnek veriyle dene</button>
         <button class="ghost small" id="clear">Listeyi temizle</button>
       </div>
+      <div id="geoBar"></div>
       <div id="curWrap">
       <div class="lnrow" id="lnRow" hidden><label for="lname" class="hint">Rota adı</label><input type="text" id="lname" placeholder="Rota adı"></div>
-      <div id="geoBar"></div>
       <div id="counts" class="counts"></div>
       <div id="approxNote"></div>
       <input type="search" id="q" placeholder="Listede ara" style="margin-top:8px" hidden>
@@ -330,11 +331,10 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
 </div>
 <div class="modal" id="imp" hidden role="dialog" aria-modal="true" aria-labelledby="impT">
   <div class="sheet">
-    <h2 id="impT">Yeni dosya yükleniyor</h2>
+    <h2 id="impT">Bu dosya zaten kayıtlı</h2>
     <p class="hint" id="impMsg" style="margin:0"></p>
-    <button class="big" id="impNew">Yeni rota olarak yükle</button>
-    <p class="hint" style="margin:-4px 0 4px">Şu anki liste silinmez, <strong>Rotalar</strong> sekmesine kaydedilir. Plan sadece yeni dosyaya göre yapılır.</p>
-    <button class="ghost" id="impAdd">Şu anki listeye ekle</button>
+    <button class="big" id="impNew">Kayıtlı rotayı aç</button>
+    <button class="ghost" id="impAdd">Yine de ayrı bir yeni rota oluştur</button>
     <button class="ghost" id="impCancel">Vazgeç</button>
   </div>
 </div>
@@ -587,6 +587,17 @@ function doImport(sheets,name,fresh){
   if(!fresh)state.plan=null;
   afterImport(added);
 }
+function runImport(sheets,name){const fresh=addMode==='new'||!state.stops.length;prepareAdd(fresh?name:'');doImport(sheets,name,false)}
+// parse a file without touching the open route
+function previewStops(sheets){const keep=state.stops,ku=state.uid;state.stops=[];try{for(const r of sheets)fromRows(r)}catch(e){}
+  const tmp=state.stops;state.stops=keep;state.uid=ku;return tmp}
+const stopKey=x=>norm(x.name)+'|'+norm(x.addr);
+function sameStops(a,b){if(!a.length||!b.length)return false;const A=new Set(a.map(stopKey));let hit=0;for(const x of b)if(A.has(stopKey(x)))hit++;
+  return hit/Math.max(a.length,b.length)>=0.9}
+function findSameRoute(stops){
+  if(state.stops.length&&sameStops(state.stops,stops))return{id:'cur',name:state.listName||'Açık rota',n:state.stops.length};
+  for(const l of state.lists)if(sameStops(l.stops,stops))return{id:l.id,name:l.name,n:l.stops.length};
+  return null}
 function handleFile(f){
   if(!f)return;
   if(typeof XLSX==='undefined'){toast('Excel okuyucu yüklenemedi; satırları kopyalayıp "Elle yapıştır" alanına yapıştır.');return}
@@ -594,7 +605,12 @@ function handleFile(f){
   r.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
       const sheets=wb.SheetNames.filter(n=>n!=='Konumsuz'&&n!=='Tüm noktalar'||wb.SheetNames.length===1).map(n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}));
       const name=String(f.name||'Liste').replace(/\.(xlsx|xls|csv)$/i,'');
-      const fresh=addMode==='new'||!state.stops.length;prepareAdd(fresh?name:'');doImport(sheets,name,false)}catch(err){toast('Dosya okunamadı: '+err.message)}};
+      const dup=findSameRoute(previewStops(sheets));
+      if(dup&&!(dup.id==='cur'&&addMode==='add')){pendingImport={sheets,name,dup};
+        $('#impMsg').textContent=`"${name}" dosyasındaki noktalar "${dup.name}" rotasıyla aynı (${dup.n} nokta). ${dup.id==='cur'?'Bu rota şu an zaten açık.':'Rotalar sekmesinde kayıtlı.'}`;
+        $('#impNew').textContent=dup.id==='cur'?'Açık rotaya git':'Kayıtlı rotayı aç';
+        $('#imp').hidden=false;$('#impNew').focus({preventScroll:true});return}
+      runImport(sheets,name)}catch(err){toast('Dosya okunamadı: '+err.message)}};
   r.readAsArrayBuffer(f);
 }
 $('#file').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
@@ -689,28 +705,34 @@ function setDone(s,v){s.done=v;s.doneAt=v?Date.now():null;if(state.pendingAsk===
 const byId=id=>state.stops.find(x=>x.id==id);
 
 // ================= add mode: new route vs. add to open route =================
-let addMode='add';
-function defaultAddMode(){if(!state.stops.length)return'add';const stale=Date.now()-(state.listTouched||0)>12*3600e3;return(state.plan||stale)?'new':'add'}
-// call before adding points; in "new" mode the open route is saved to Rotalar and a fresh one starts
+let addMode='add',justCreated=null;
+// Coming to Noktalar with an open route always starts a NEW route; the open one is kept in Rotalar.
+function defaultAddMode(){return state.stops.length?'new':'add'}
 function prepareAdd(name){
-  if(addMode==='new'){
+  if(addMode==='new'&&state.listId!==justCreated){
     const old=state.stops.length?state.listName:'';
     if(state.stops.length)archiveCurrent('kayitli',true);
-    startNewList(name);addMode='add';
+    startNewList(name);justCreated=state.listId;
     if(old)setTimeout(()=>toast(`Önceki rota "${old}" Rotalar'a kaydedildi`),1600);
   }else if(!state.listId){ensureListMeta();if(name&&!state.stops.length)state.listName=name}
   state.listTouched=Date.now();
 }
 function renderMode(){
-  const has=state.stops.length>0;$('#modeSeg').hidden=!has;
+  const has=state.stops.length>0,fresh=has&&state.listId===justCreated;
+  $('#modeSeg').hidden=!has||fresh;
   document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===addMode));
   const add=$('#modeSeg [data-mode=add]');if(add)add.textContent=`Açık rotaya ekle (${state.stops.length})`;
   const isNew=addMode==='new'&&has;
-  $('#curWrap').hidden=isNew;$('#clear').hidden=isNew||!has;
-  $('#modeNote').innerHTML=isNew?`<div class="note">Eklediğin noktalar <strong>yeni bir rota</strong> olur. Açık rota "<strong>${esc(state.listName||'Adsız rota')}</strong>" (${state.stops.length} nokta) ilk eklemede <strong>Rotalar</strong>'a kaydedilir; istersen sonra rotaları birleştirebilirsin.</div>`
-    :(has?`<p class="hint" style="margin:8px 0 0">Eklediklerin açık rotaya eklenir: <strong>${esc(state.listName||'Adsız rota')}</strong></p>`:'');
+  $('#curWrap').hidden=isNew;$('#clear').hidden=isNew||!has;$('#geoBar').hidden=isNew&&!fresh;
+  let note='';
+  if(isNew&&fresh)note=`<div class="note"><strong>✓ Yeni rota oluşturuldu: ${esc(state.listName)}</strong> · ${state.stops.length} nokta<br><span class="hint">Eklemeye devam edersen bu rotaya eklenir. Önceki rota Rotalar'da duruyor.</span>
+      <div class="row"><button class="small" data-go="plan">Planı hesapla</button><button class="ghost small" data-mode-show="1">Noktaları göster</button></div></div>`;
+  else if(isNew)note=`<div class="note">Yeni bir rota oluşturuyorsun; eklediğin ilk nokta ya da Excel yeni rota olur.<br><span class="hint">Açık rota "<strong>${esc(state.listName||'Adsız rota')}</strong>" (${state.stops.length} nokta) silinmez, Rotalar'a kaydedilir. Ona eklemek istersen üstten "Açık rotaya ekle"yi seç.</span></div>`;
+  else if(has)note=`<p class="hint" style="margin:8px 0 0">Eklediklerin şu rotaya eklenir: <strong>${esc(state.listName||'Adsız rota')}</strong></p>`;
+  $('#modeNote').innerHTML=note;
   $('#lnRow').hidden=!has;if(has&&document.activeElement!==$('#lname'))$('#lname').value=state.listName||'';
 }
+$('#modeNote').addEventListener('click',e=>{if(e.target.dataset.modeShow){addMode='add';renderList()}});
 $('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(!b)return;addMode=b.dataset.mode;renderList()});
 $('#lname').addEventListener('change',()=>{state.listName=$('#lname').value.trim()||state.listName;save();renderMode()});
 
@@ -729,6 +751,25 @@ function archiveCurrent(status,quiet){
   state.stops=[];state.plan=null;state.activeDay=0;state.pendingAsk=null;state.finAsked=false;state.listId=null;state.listName='';state.listCreated=0;
   if(geoRun)geoRun.stop=true;state.geoAuto=false;
   save();if(!quiet)toast(status==='bitti'?'Rota "Bitti" olarak kaydedildi':'Rota kaydedildi');return true;
+}
+function dedupeLists(){
+  const score=l=>l.stops.filter(x=>x.done).length*1e6+(l.plan?1e5:0)+l.stops.filter(x=>x.prec==='exact').length+(l.saved||0)/1e14;
+  let removed=0;const out=[];
+  for(const l of [...state.lists].sort((a,b)=>score(b)-score(a))){
+    if(out.some(k=>k.stops.length===l.stops.length&&sameStops(k.stops,l.stops))){removed++;continue}
+    out.push(l)}
+  // a saved copy identical to the open route: keep the open one, take over any locations found in the copy
+  if(state.stops.length){for(let i=out.length-1;i>=0;i--){const l=out[i];
+    if(l.stops.length===state.stops.length&&sameStops(l.stops,state.stops)&&!l.stops.some(x=>x.done)){
+      const m=new Map(l.stops.map(x=>[stopKey(x),x]));
+      for(const x of state.stops){const c=m.get(stopKey(x));if(c&&c.prec==='exact'&&x.prec!=='exact'){x.lat=c.lat;x.lng=c.lng;x.prec='exact';x.gl=c.gl;x.gtried=true}
+        else if(c&&c.gtried&&!x.gtried){x.gtried=true;if(c.gm)x.gm=c.gm}}
+      if(!state.plan&&l.plan){const idMap=new Map(l.stops.map(c=>{const x=state.stops.find(y=>stopKey(y)===stopKey(c));return[c.id,x?x.id:null]}));
+        const days=l.plan.days.map(d=>d.map(id=>idMap.get(id)).filter(Boolean));state.plan={...l.plan,days}}
+      out.splice(i,1);removed++}}}
+  state.lists=state.stops.length||true?out.sort((a,b)=>(b.saved||0)-(a.saved||0)):out;
+  if(removed){resolveApprox();save()}
+  return removed;
 }
 function openList(id,reuse){
   const e=state.lists.find(l=>l.id===id);if(!e)return;
@@ -755,8 +796,9 @@ function checkFinished(){
 }
 $('#finSave').onclick=()=>{$('#fin').hidden=true;archiveCurrent('bitti');go('lists')};
 $('#finLater').onclick=()=>{$('#fin').hidden=true};
-$('#impNew').onclick=()=>{$('#imp').hidden=true;const p=pendingImport;pendingImport=null;if(p)doImport(p.sheets,p.name,true)};
-$('#impAdd').onclick=()=>{$('#imp').hidden=true;const p=pendingImport;pendingImport=null;if(p){ensureListMeta();doImport(p.sheets,p.name,false)}};
+$('#impNew').onclick=()=>{$('#imp').hidden=true;const p=pendingImport;pendingImport=null;if(!p)return;
+  if(p.dup.id==='cur'){go(state.plan?'drive':'plan');toast('Bu rota zaten açık')}else openList(p.dup.id,false)};
+$('#impAdd').onclick=()=>{$('#imp').hidden=true;const p=pendingImport;pendingImport=null;if(p)runImport(p.sheets,p.name)};
 $('#impCancel').onclick=()=>{$('#imp').hidden=true;pendingImport=null};
 
 let delArm=null;
@@ -814,7 +856,7 @@ $('#listsBody').addEventListener('click',e=>{const b=e.target.closest('button');
 
 // ================= tabs =================
 let view='drive';
-function go(v){if(v==='points'&&view!=='points')addMode=defaultAddMode();if(v!=='lists')mergeSel=null;view=v;document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);
+function go(v){if(v==='points'&&view!=='points'){addMode=defaultAddMode();justCreated=null}if(v!=='lists')mergeSel=null;view=v;document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   renderView();window.scrollTo(0,0)}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)go(b.dataset.v)});
@@ -1231,7 +1273,8 @@ function drawMap(groups,base,numbered){
 // ================= boot =================
 function renderAll(){syncSettingsUI();renderView()}
 if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.AndroidBridge&&STANDALONE){navigator.serviceWorker.register('sw.js').catch(()=>{})}
-loadLocal();renderAll();go(state.plan?'drive':(state.stops.length?'plan':'points'));initDb();initDownloads();
+loadLocal();{const r=dedupeLists();if(r)setTimeout(()=>toast(`Aynı olan ${r} kayıtlı rota birleştirildi`),2600)}
+renderAll();go(state.plan?'drive':(state.stops.length?'plan':'points'));initDb();initDownloads();
 let seen=false;try{seen=localStorage.getItem('denetim-intro')==='1'}catch(e){}
 const rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function endSplash(){const sp=$('#splash');if(!sp||sp.classList.contains('out'))return;sp.classList.add('out');setTimeout(()=>sp.remove(),500);
