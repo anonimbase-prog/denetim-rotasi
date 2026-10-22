@@ -455,11 +455,13 @@ function findCoords(text){
   for(const p of pats){const m=s.match(p);if(m){const a=num(m[1]),b=num(m[2]);if(valid(a,b))return{lat:a,lng:b,match:m[0]}}}
   return null;
 }
-function lastHitI(text,dict){const w=' '+normSp(text)+' ';let best='',bi=-1;
+const normAddr=t=>normSp(t).replace(/\b(19|ondokuz) mayis\b/g,'ondokuzmayis');
+const ILCE_DISP={alacam:'Alaçam',asarcik:'Asarcık',atakum:'Atakum',ayvacik:'Ayvacık',bafra:'Bafra',canik:'Canik',carsamba:'Çarşamba',havza:'Havza',ilkadim:'İlkadım',kavak:'Kavak',ladik:'Ladik',ondokuzmayis:'19 Mayıs',salipazari:'Salıpazarı',tekkekoy:'Tekkeköy',terme:'Terme',vezirkopru:'Vezirköprü',yakakent:'Yakakent',samsun:'Samsun',istanbul:'İstanbul',tekirdag:'Tekirdağ',cerkezkoy:'Çerkezköy'};
+function lastHitI(text,dict){const w=' '+normAddr(text)+' ';let best='',bi=-1;
   for(const k in dict){const i=w.lastIndexOf(' '+k+' ');if(i>bi){bi=i;best=k}}return{k:IL_ALIAS[best]||best,i:bi}}
 function lastHit(text,dict){return lastHitI(text,dict).k}
 function mahOf(text){
-  const w=normSp(text).split(' ');let k=w.findIndex(x=>['mah','mahallesi','mh','mahalle','mahalesi'].includes(x));
+  const w=normAddr(text).split(' ');let k=w.findIndex(x=>['mah','mahallesi','mh','mahalle','mahalesi'].includes(x));
   if(k<1)return'';
   const stop=new Set(['cad','cd','caddesi','sok','sk','sokak','sokagi','no','blv','bulvari','apt','kat','d','daire','yolu']);
   const out=[];for(let i=k-1;i>=0&&out.length<2;i--){if(stop.has(w[i])||/^\d+$/.test(w[i]))break;out.unshift(w[i])}
@@ -469,11 +471,11 @@ const AREA_STOP=new Set(['mah','mahallesi','mh','mahalle','sok','sokak','sokagi'
 function areaOf(s){ // fill s.il, s.ilce, s.mah from explicit fields or address text
   const txt=s.addr||'';
   let il=s.il?(IL_ALIAS[norm(s.il)]||norm(s.il)):'';
-  let ilce=s.ilce?(IL_ALIAS[norm(s.ilce)]||norm(s.ilce)):'';
+  let ilce=s.ilce?(IL_ALIAS[norm(normAddr(s.ilce))]||norm(normAddr(s.ilce))):'';
   if(!ilce){let bi=-1;for(const p in ILCE){if(il&&il!==p)continue;const h=lastHitI(txt,ILCE[p]);if(h.k&&h.i>bi){bi=h.i;ilce=h.k;if(!s.il)il=p}}}
   else if(!il){for(const p in ILCE)if(ILCE[p][ilce]){il=p;break}}
   if(!il)il=lastHit(txt,IL);
-  if(!ilce&&il){const w=normSp(txt).split(' '),k=w.lastIndexOf(il),pw=k>0?w[k-1]:'';
+  if(!ilce&&il){const w=normAddr(txt).split(' '),k=w.lastIndexOf(il),pw=k>0?w[k-1]:'';
     if(pw&&pw.length>2&&!AREA_STOP.has(pw)&&!/^\d/.test(pw)&&!IL[pw])ilce=pw}
   let mah=s.mah?normSp(s.mah).replace(/\b(mahallesi|mah|mh|mahalle)\b/g,'').trim():mahOf(txt);
   s.il=il;s.ilce=ilce;s.mah=mah;
@@ -587,6 +589,21 @@ function doImport(sheets,name,fresh){
   if(!fresh)state.plan=null;
   afterImport(added);
 }
+// Each Excel file becomes its own route, built from zero: nothing is mixed with the open route.
+function newRouteFromExcel(sheets,name){
+  const old=state.stops.length?state.listName:'';
+  if(state.stops.length)archiveCurrent('kayitli',true);
+  startNewList(name);justCreated=state.listId;addMode='new';state.listTouched=Date.now();
+  let added=0;for(const rows of sheets)added+=fromRows(rows).added;
+  // an older saved copy of the very same file with no progress is obsolete → drop it
+  const before=state.lists.length;
+  state.lists=state.lists.filter(l=>!(l.stops.length===state.stops.length&&sameStops(l.stops,state.stops)&&!l.stops.some(x=>x.done)));
+  const dropped=before-state.lists.length;
+  resolveApprox();state.plan=null;save();renderAll();
+  toast(`"${name}" yeni rota olarak açıldı: ${added} nokta`);
+  if(old)setTimeout(()=>toast(dropped?`Aynı dosyanın eski kopyası kaldırıldı`:`Önceki rota "${old}" Rotalar'a kaydedildi`),2700);
+  if(state.stops.some(needsGeo))setTimeout(startGeocode,300);
+}
 function runImport(sheets,name){const fresh=addMode==='new'||!state.stops.length;prepareAdd(fresh?name:'');doImport(sheets,name,false)}
 // parse a file without touching the open route
 function previewStops(sheets){const keep=state.stops,ku=state.uid;state.stops=[];try{for(const r of sheets)fromRows(r)}catch(e){}
@@ -605,12 +622,7 @@ function handleFile(f){
   r.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
       const sheets=wb.SheetNames.filter(n=>n!=='Konumsuz'&&n!=='Tüm noktalar'||wb.SheetNames.length===1).map(n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}));
       const name=String(f.name||'Liste').replace(/\.(xlsx|xls|csv)$/i,'');
-      const dup=findSameRoute(previewStops(sheets));
-      if(dup&&!(dup.id==='cur'&&addMode==='add')){pendingImport={sheets,name,dup};
-        $('#impMsg').textContent=`"${name}" dosyasındaki noktalar "${dup.name}" rotasıyla aynı (${dup.n} nokta). ${dup.id==='cur'?'Bu rota şu an zaten açık.':'Rotalar sekmesinde kayıtlı.'}`;
-        $('#impNew').textContent=dup.id==='cur'?'Açık rotaya git':'Kayıtlı rotayı aç';
-        $('#imp').hidden=false;$('#impNew').focus({preventScroll:true});return}
-      runImport(sheets,name)}catch(err){toast('Dosya okunamadı: '+err.message)}};
+      newRouteFromExcel(sheets,name)}catch(err){toast('Dosya okunamadı: '+err.message)}};
   r.readAsArrayBuffer(f);
 }
 $('#file').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
@@ -727,8 +739,8 @@ function renderMode(){
   let note='';
   if(isNew&&fresh)note=`<div class="note"><strong>✓ Yeni rota oluşturuldu: ${esc(state.listName)}</strong> · ${state.stops.length} nokta<br><span class="hint">Eklemeye devam edersen bu rotaya eklenir. Önceki rota Rotalar'da duruyor.</span>
       <div class="row"><button class="small" data-go="plan">Planı hesapla</button><button class="ghost small" data-mode-show="1">Noktaları göster</button></div></div>`;
-  else if(isNew)note=`<div class="note">Yeni bir rota oluşturuyorsun; eklediğin ilk nokta ya da Excel yeni rota olur.<br><span class="hint">Açık rota "<strong>${esc(state.listName||'Adsız rota')}</strong>" (${state.stops.length} nokta) silinmez, Rotalar'a kaydedilir. Ona eklemek istersen üstten "Açık rotaya ekle"yi seç.</span></div>`;
-  else if(has)note=`<p class="hint" style="margin:8px 0 0">Eklediklerin şu rotaya eklenir: <strong>${esc(state.listName||'Adsız rota')}</strong></p>`;
+  else if(isNew)note=`<div class="note">Yeni bir rota oluşturuyorsun. Yüklediğin her Excel <strong>ayrı, yeni bir rota</strong> olur; eski rotayla karışmaz.<br><span class="hint">Açık rota "<strong>${esc(state.listName||'Adsız rota')}</strong>" (${state.stops.length} nokta) silinmez, Rotalar'a kaydedilir. Ona eklemek istersen üstten "Açık rotaya ekle"yi seç.</span></div>`;
+  else if(has)note=`<p class="hint" style="margin:8px 0 0">Yazdığın adresler şu rotaya eklenir: <strong>${esc(state.listName||'Adsız rota')}</strong>. Excel yüklersen her zaman ayrı yeni rota olur.</p>`;
   $('#modeNote').innerHTML=note;
   $('#lnRow').hidden=!has;if(has&&document.activeElement!==$('#lname'))$('#lname').value=state.listName||'';
 }
@@ -749,7 +761,7 @@ function archiveCurrent(status,quiet){
     finished:status==='bitti'?Date.now():null,stops:state.stops,plan:state.plan,activeDay:state.activeDay||0};
   state.lists=state.lists.filter(l=>l.id!==entry.id);state.lists.unshift(entry);
   state.stops=[];state.plan=null;state.activeDay=0;state.pendingAsk=null;state.finAsked=false;state.listId=null;state.listName='';state.listCreated=0;
-  if(geoRun)geoRun.stop=true;state.geoAuto=false;
+  if(geoRun){geoRun.stop=true;geoRun.quiet=true}state.geoAuto=false;
   save();if(!quiet)toast(status==='bitti'?'Rota "Bitti" olarak kaydedildi':'Rota kaydedildi');return true;
 }
 function dedupeLists(){
@@ -758,17 +770,8 @@ function dedupeLists(){
   for(const l of [...state.lists].sort((a,b)=>score(b)-score(a))){
     if(out.some(k=>k.stops.length===l.stops.length&&sameStops(k.stops,l.stops))){removed++;continue}
     out.push(l)}
-  // a saved copy identical to the open route: keep the open one, take over any locations found in the copy
-  if(state.stops.length){for(let i=out.length-1;i>=0;i--){const l=out[i];
-    if(l.stops.length===state.stops.length&&sameStops(l.stops,state.stops)&&!l.stops.some(x=>x.done)){
-      const m=new Map(l.stops.map(x=>[stopKey(x),x]));
-      for(const x of state.stops){const c=m.get(stopKey(x));if(c&&c.prec==='exact'&&x.prec!=='exact'){x.lat=c.lat;x.lng=c.lng;x.prec='exact';x.gl=c.gl;x.gtried=true}
-        else if(c&&c.gtried&&!x.gtried){x.gtried=true;if(c.gm)x.gm=c.gm}}
-      if(!state.plan&&l.plan){const idMap=new Map(l.stops.map(c=>{const x=state.stops.find(y=>stopKey(y)===stopKey(c));return[c.id,x?x.id:null]}));
-        const days=l.plan.days.map(d=>d.map(id=>idMap.get(id)).filter(Boolean));state.plan={...l.plan,days}}
-      out.splice(i,1);removed++}}}
-  state.lists=state.stops.length||true?out.sort((a,b)=>(b.saved||0)-(a.saved||0)):out;
-  if(removed){resolveApprox();save()}
+  state.lists=out.sort((a,b)=>(b.saved||0)-(a.saved||0));
+  if(removed)save();
   return removed;
 }
 function openList(id,reuse){
@@ -1154,7 +1157,7 @@ function lvlOf(r){const a=r.a,c=r.c;
 async function geocodeStop(s){
   const txt=(s.addr||'').trim();if(!txt)return null;
   const P=parseAddr(txt);
-  const ow=k=>{if(!k)return'';const i=P.nt.lastIndexOf(k);return capTR(i>=0?P.toks[i]:k)};
+  const ow=k=>{if(!k)return'';if(ILCE_DISP[k])return ILCE_DISP[k];const i=P.nt.lastIndexOf(k);return capTR(i>=0?P.toks[i]:k)};
   const ilW=ow(s.il),ilceW=ow(s.ilce),loc=[ilceW,ilW].filter(Boolean).join(', '),L=loc?', '+loc:'';
   const mah=P.mah,Q=[],add=(lvl,p)=>Q.push({lvl,p});
   if(P.street&&P.no&&loc){const sp={street:P.no+' '+P.street};if(ilceW)sp.city=ilceW;if(ilW)sp.state=ilW;add('bina',sp)}
@@ -1162,7 +1165,7 @@ async function geocodeStop(s){
   if(mah){add('mah',{q:`${mah} Mahallesi${L}`});add('mah',{q:`${mah}${L}`})}
   if(!P.street&&!mah)add('bina',{q:txt});
   if(loc)add('ilce',{q:loc});
-  const ok=r=>{const dn=normSp(r.dn);return(!s.ilce||dn.includes(s.ilce))&&(!s.il||dn.includes(s.il))};
+  const ok=r=>{const dn=normAddr(r.dn);return(!s.ilce||dn.includes(s.ilce))&&(!s.il||dn.includes(s.il))};
   let best=null;
   for(const q of Q){
     if(best&&RANK[best.lvl]<=RANK[q.lvl])break;
@@ -1176,8 +1179,9 @@ function applyGeo(s,b){s.gtried=true;if(!b)return;
   if(b.lvl==='bina'||b.lvl==='sokak'){s.lat=b.lat;s.lng=b.lng;s.prec='exact';s.gl=b.lvl}else s.gm=b}
 const needsGeo=s=>s.prec!=='exact'&&!s.gtried&&!!(s.addr||'').trim();
 let geoRun=null;
+let geoRestart=false;
 async function startGeocode(){
-  if(geoRun)return;const list=state.stops.filter(needsGeo);if(!list.length){renderGeoBar();return}
+  if(geoRun){if(geoRun.stop)geoRestart=true;return}const list=state.stops.filter(needsGeo);if(!list.length){renderGeoBar();return}
   geoRun={total:list.length,done:0,stop:false};state.geoAuto=true;save();renderGeoBar();
   let err='';
   for(const s of list){
@@ -1188,9 +1192,11 @@ async function startGeocode(){
     if(geoRun.done%3===0||geoRun.done===geoRun.total){resolveApprox();save();if(view==='points')renderList()}
     renderGeoBar();
   }
-  const stopped=geoRun.stop,found=list.filter(s=>s.prec==='exact').length;
+  const stopped=geoRun.stop,quiet=geoRun.quiet,found=list.filter(s=>s.prec==='exact').length;
   geoRun=null;if(!err&&!stopped)state.geoAuto=false;
   resolveApprox();save();renderAll();renderGeoBar();
+  if(geoRestart){geoRestart=false;setTimeout(startGeocode,200);return}
+  if(quiet)return;
   toast(err?err+'. Bağlantı gelince "Adresleri haritada bul"a bas.':stopped?'Adres araması durduruldu':`Adres araması bitti: ${found}/${list.length} adres haritada bulundu`);
 }
 function renderGeoBar(){
@@ -1273,7 +1279,11 @@ function drawMap(groups,base,numbered){
 // ================= boot =================
 function renderAll(){syncSettingsUI();renderView()}
 if('serviceWorker' in navigator&&location.protocol==='https:'&&!window.AndroidBridge&&STANDALONE){navigator.serviceWorker.register('sw.js').catch(()=>{})}
-loadLocal();{const r=dedupeLists();if(r)setTimeout(()=>toast(`Aynı olan ${r} kayıtlı rota birleştirildi`),2600)}
+function fixAreas(stops){let n=0;for(const x of stops){if(x.ilce==='mayis'||(/\b(19|ondokuz)\s*may[ıi]s\b/i.test(x.addr||'')&&x.ilce!=='ondokuzmayis')){
+    x.ilce='';x.il='';x.mah='';areaOf(x);if(x.prec!=='exact'){x.gtried=false;delete x.gm}n++}}return n}
+loadLocal();{const fixed=fixAreas(state.stops)+state.lists.reduce((a,l)=>a+fixAreas(l.stops),0);
+  if(fixed){resolveApprox();save();if(state.stops.some(needsGeo))state.geoAuto=true}}
+{const r=dedupeLists();if(r)setTimeout(()=>toast(`Aynı olan ${r} kayıtlı rota birleştirildi`),2600)}
 renderAll();go(state.plan?'drive':(state.stops.length?'plan':'points'));initDb();initDownloads();
 let seen=false;try{seen=localStorage.getItem('denetim-intro')==='1'}catch(e){}
 const rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
