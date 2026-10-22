@@ -124,8 +124,8 @@ ol.route li input[type=checkbox]{width:22px;height:22px;margin:2px 0 0;flex:none
 .empty{text-align:center;padding:26px 8px}
 summary{padding:6px 0}
 nav#nav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(4,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
-nav#nav button{background:none;color:var(--muted);font-weight:700;font-size:.8rem;padding:8px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:2px}
+  display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
+nav#nav button{background:none;color:var(--muted);font-weight:700;font-size:.74rem;padding:8px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:2px}
 nav#nav button svg{width:22px;height:22px;background:none;border-radius:0}
 nav#nav button.on{color:var(--ink);background:var(--soft)}
 nav#nav b{font-size:.7rem;background:var(--pin);color:var(--pinInk);border-radius:99px;padding:0 6px;min-width:18px}
@@ -177,6 +177,23 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
 .addbox{background:var(--soft);border-radius:12px;padding:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px}
 .addbox label{font-weight:700}
 .sheet{max-height:92vh;overflow:auto}
+.lcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0;display:flex;flex-direction:column;gap:8px}
+.lcard.cur{border:2px solid var(--ink)}
+.lcard .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.lcard h3{margin:0;font-size:1.1rem}
+.lcard .acts{display:flex;gap:8px;flex-wrap:wrap}
+.chip.c-done{color:var(--ok)} .chip.c-wait{color:var(--route)}
+.listname{font-size:.85rem;color:var(--muted);margin:-6px 0 10px}
+.listname strong{color:var(--ink)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);border-radius:12px;padding:4px;gap:4px;margin:10px 0 4px}
+.seg button{background:none;color:var(--muted);padding:10px 6px;font-size:.92rem}
+.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.lnrow{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-top:16px}
+.lcard .pick{display:flex;gap:10px;align-items:center;font-weight:700}
+.lcard .pick input{width:22px;height:22px;accent-color:var(--route)}
+.mergebar{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--panel);border-radius:12px;padding:10px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;z-index:3}
+.mergebar button{background:var(--route);color:#fff}
+.mergebar button.ghost{background:transparent;color:var(--panel);border-color:rgba(255,255,255,.4)}
 .or{text-align:center;color:var(--muted);font-size:.9rem;margin:14px 0 4px}
 @media (prefers-reduced-motion:reduce){#toast,#splash{transition:none}#splash *{animation:none!important;stroke-dashoffset:0!important}}
 </style>
@@ -233,7 +250,12 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
   <div class="view" id="v-points" hidden>
     <section>
       <h2>Noktalar</h2>
-      <p class="hint" id="emptyPts">Gideceğin yerlerin listesini yükle. Ad, adres, mahalle, ilçe, il, enlem/boylam veya Google Maps linki sütunları tanınır; hepsi gerekmez.</p>
+      <div class="seg" id="modeSeg" hidden>
+        <button data-mode="new">Yeni rota</button>
+        <button data-mode="add">Açık rotaya ekle</button>
+      </div>
+      <div id="modeNote"></div>
+      <p class="hint" id="emptyPts">Gideceğin yerleri ekle: adres yaz ya da Excel yükle. Ad, adres, mahalle, ilçe, il, enlem/boylam veya Google Maps linki sütunları tanınır; hepsi gerekmez.</p>
       <div class="addbox">
         <label for="newAddr">Adres yaz, haritada işaretleyeyim</label>
         <input type="text" id="newName" placeholder="İşletme adı (isteğe bağlı)">
@@ -255,18 +277,25 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
         <button class="ghost small" id="sample">Örnek veriyle dene</button>
         <button class="ghost small" id="clear">Listeyi temizle</button>
       </div>
+      <div id="curWrap">
+      <div class="lnrow" id="lnRow" hidden><label for="lname" class="hint">Rota adı</label><input type="text" id="lname" placeholder="Rota adı"></div>
       <div id="geoBar"></div>
       <div id="counts" class="counts"></div>
       <div id="approxNote"></div>
       <input type="search" id="q" placeholder="Listede ara" style="margin-top:8px" hidden>
       <div id="list"></div>
       <div class="row" id="moreRow" hidden><button class="ghost" id="more">Daha fazla göster</button></div>
+      </div>
     </section>
   </div>
 
   <!-- TAMAMLANAN -->
   <div class="view" id="v-done" hidden>
     <section><h2>Tamamlanan duraklar</h2><div id="doneBody"></div></section>
+  </div>
+  <!-- KAYITLI ROTALAR -->
+  <div class="view" id="v-lists" hidden>
+    <section><h2>Rotalar</h2><div id="listsBody"></div></section>
   </div>
   <p id="sync" style="text-align:center;margin:14px 0 0">Kayıt: bu cihaz</p>
 </main>
@@ -275,7 +304,8 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
   <button data-v="drive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"/></svg><span class="lbl">Sürüş</span></button>
   <button data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8"/></svg><span class="lbl">Plan</span></button>
   <button data-v="points"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="lbl">Noktalar <b id="navPts"></b></span></button>
-  <button data-v="done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span class="lbl">Tamamlanan <b id="navDone"></b></span></button>
+  <button data-v="done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span class="lbl">Biten <b id="navDone"></b></span></button>
+  <button data-v="lists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg><span class="lbl">Rotalar <b id="navLists"></b></span></button>
 </nav>
 
 <div class="modal" id="ask" hidden role="dialog" aria-modal="true" aria-labelledby="askName">
@@ -296,6 +326,25 @@ nav#nav .lbl{display:flex;gap:4px;align-items:center}
     <p class="hint" style="margin:0">Yanlışsa mavi işaretçiyi sürükle ya da haritada doğru yere dokun.</p>
     <button class="okbtn" id="edSave">Bu konumu kaydet</button>
     <button class="ghost" id="edCancel">Vazgeç</button>
+  </div>
+</div>
+<div class="modal" id="imp" hidden role="dialog" aria-modal="true" aria-labelledby="impT">
+  <div class="sheet">
+    <h2 id="impT">Yeni dosya yükleniyor</h2>
+    <p class="hint" id="impMsg" style="margin:0"></p>
+    <button class="big" id="impNew">Yeni rota olarak yükle</button>
+    <p class="hint" style="margin:-4px 0 4px">Şu anki liste silinmez, <strong>Rotalar</strong> sekmesine kaydedilir. Plan sadece yeni dosyaya göre yapılır.</p>
+    <button class="ghost" id="impAdd">Şu anki listeye ekle</button>
+    <button class="ghost" id="impCancel">Vazgeç</button>
+  </div>
+</div>
+<div class="modal" id="fin" hidden role="dialog" aria-modal="true" aria-labelledby="finT">
+  <div class="sheet" style="text-align:center">
+    <div style="font-size:2.6rem;line-height:1">🎉</div>
+    <h2 id="finT">Rota tamamlandı!</h2>
+    <p class="hint" id="finMsg" style="margin:0"></p>
+    <button class="okbtn" id="finSave">Bitti olarak kaydet</button>
+    <button class="ghost" id="finLater">Şimdilik açık kalsın</button>
   </div>
 </div>
 <div id="toast" role="status"></div>
@@ -351,7 +400,7 @@ const PREC={exact:'Kesin',mah:'≈ Mahalle',ilce:'≈ İlçe',il:'≈ İl',none:
 // ================= state =================
 const KEY='denetim-rota-v2';
 const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-let state={stops:[],settings:{start:'me',custom:'',perDay:20,round:true,skipDone:true,chunk:10,mapApp:IS_IOS?'apple':'google'},plan:null,uid:1,updated:0,activeDay:0,pendingAsk:null,lastPos:null};
+let state={stops:[],settings:{start:'me',custom:'',perDay:20,round:true,skipDone:true,chunk:10,mapApp:IS_IOS?'apple':'google'},plan:null,uid:1,updated:0,activeDay:0,pendingAsk:null,lastPos:null,lists:[],listId:null,listName:'',listCreated:0,finAsked:false};
 let filter='all',shown=60,curDay=0;
 
 const $=s=>document.querySelector(s);
@@ -530,13 +579,22 @@ function afterImport(added){
   const a=state.stops.filter(s=>s.prec!=='exact'&&s.prec!=='none').length,n=state.stops.filter(s=>s.prec==='none').length;
   toast(`${added} nokta eklendi`+(a?`, ${a} yaklaşık konumlu`:'')+(n?`, ${n} konumsuz`:''));
 }
+let pendingImport=null;
+function doImport(sheets,name,fresh){
+  if(fresh){if(state.stops.length)archiveCurrent('kayitli',true);startNewList(name)}
+  state.listTouched=Date.now();
+  let added=0;for(const rows of sheets)added+=fromRows(rows).added;
+  if(!fresh)state.plan=null;
+  afterImport(added);
+}
 function handleFile(f){
   if(!f)return;
   if(typeof XLSX==='undefined'){toast('Excel okuyucu yüklenemedi; satırları kopyalayıp "Elle yapıştır" alanına yapıştır.');return}
   const r=new FileReader();
-  r.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});let added=0;
-      wb.SheetNames.forEach(n=>{if(n==='Konumsuz')return;added+=fromRows(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''})).added});
-      afterImport(added)}catch(err){toast('Dosya okunamadı: '+err.message)}};
+  r.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const sheets=wb.SheetNames.filter(n=>n!=='Konumsuz'&&n!=='Tüm noktalar'||wb.SheetNames.length===1).map(n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}));
+      const name=String(f.name||'Liste').replace(/\.(xlsx|xls|csv)$/i,'');
+      const fresh=addMode==='new'||!state.stops.length;prepareAdd(fresh?name:'');doImport(sheets,name,false)}catch(err){toast('Dosya okunamadı: '+err.message)}};
   r.readAsArrayBuffer(f);
 }
 $('#file').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
@@ -544,13 +602,14 @@ const drop=$('#drop');
 ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('on')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('on')}));
 drop.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
-$('#addPaste').onclick=()=>{const t=$('#paste').value;if(!t.trim())return;
+$('#addPaste').onclick=()=>{const t=$('#paste').value;if(!t.trim())return;prepareAdd('');
   const res=t.includes('\t')?fromRows(t.split(/\r?\n/).map(l=>l.split('\t'))):fromText(t);$('#paste').value='';afterImport(res.added)};
 let clearArm=false;
 $('#clear').onclick=()=>{if(!state.stops.length)return;
   if(!clearArm){clearArm=true;$('#clear').textContent='Emin misin? Tekrar bas';setTimeout(()=>{clearArm=false;$('#clear').textContent='Listeyi temizle'},3500);return}
-  clearArm=false;$('#clear').textContent='Listeyi temizle';state.stops=[];state.plan=null;save();renderAll()};
+  clearArm=false;$('#clear').textContent='Listeyi temizle';if(geoRun)geoRun.stop=true;state.geoAuto=false;startNewList('');state.listId=null;state.listName='';save();renderAll()};
 $('#sample').onclick=()=>{
+  addMode='new';prepareAdd('Örnek Samsun rotası');
   const ks=['ilkadim','atakum','canik','tekkekoy','ilkadim','atakum','carsamba','bafra','terme','havza'];let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
   const nm={ilkadim:'İlkadım',atakum:'Atakum',canik:'Canik',tekkekoy:'Tekkeköy',carsamba:'Çarşamba',bafra:'Bafra',terme:'Terme',havza:'Havza'};
   const tags=['Fırın','Market','Lokanta','Pastane','Kasap','Süt Ürünleri','Unlu Mamul','Şarküteri'];
@@ -625,24 +684,149 @@ function reoptFrom(fromPos,dayIdx){
 }
 function finishStop(id){const s=byId(id);if(!s)return;setDone(s,true);
   const di=state.plan?state.plan.days.findIndex(d=>d.includes(s.id)):-1;
-  if(di>=0)reoptFrom(pos(s),di);save()}
-function setDone(s,v){s.done=v;s.doneAt=v?Date.now():null;if(state.pendingAsk===s.id&&v)state.pendingAsk=null;save()}
+  if(di>=0)reoptFrom(pos(s),di);save();setTimeout(checkFinished,350)}
+function setDone(s,v){s.done=v;s.doneAt=v?Date.now():null;if(state.pendingAsk===s.id&&v)state.pendingAsk=null;save();if(v)setTimeout(checkFinished,350);else state.finAsked=false}
 const byId=id=>state.stops.find(x=>x.id==id);
+
+// ================= add mode: new route vs. add to open route =================
+let addMode='add';
+function defaultAddMode(){if(!state.stops.length)return'add';const stale=Date.now()-(state.listTouched||0)>12*3600e3;return(state.plan||stale)?'new':'add'}
+// call before adding points; in "new" mode the open route is saved to Rotalar and a fresh one starts
+function prepareAdd(name){
+  if(addMode==='new'){
+    const old=state.stops.length?state.listName:'';
+    if(state.stops.length)archiveCurrent('kayitli',true);
+    startNewList(name);addMode='add';
+    if(old)setTimeout(()=>toast(`Önceki rota "${old}" Rotalar'a kaydedildi`),1600);
+  }else if(!state.listId){ensureListMeta();if(name&&!state.stops.length)state.listName=name}
+  state.listTouched=Date.now();
+}
+function renderMode(){
+  const has=state.stops.length>0;$('#modeSeg').hidden=!has;
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===addMode));
+  const add=$('#modeSeg [data-mode=add]');if(add)add.textContent=`Açık rotaya ekle (${state.stops.length})`;
+  const isNew=addMode==='new'&&has;
+  $('#curWrap').hidden=isNew;$('#clear').hidden=isNew||!has;
+  $('#modeNote').innerHTML=isNew?`<div class="note">Eklediğin noktalar <strong>yeni bir rota</strong> olur. Açık rota "<strong>${esc(state.listName||'Adsız rota')}</strong>" (${state.stops.length} nokta) ilk eklemede <strong>Rotalar</strong>'a kaydedilir; istersen sonra rotaları birleştirebilirsin.</div>`
+    :(has?`<p class="hint" style="margin:8px 0 0">Eklediklerin açık rotaya eklenir: <strong>${esc(state.listName||'Adsız rota')}</strong></p>`:'');
+  $('#lnRow').hidden=!has;if(has&&document.activeElement!==$('#lname'))$('#lname').value=state.listName||'';
+}
+$('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(!b)return;addMode=b.dataset.mode;renderList()});
+$('#lname').addEventListener('change',()=>{state.listName=$('#lname').value.trim()||state.listName;save();renderMode()});
+
+// ================= saved routes =================
+const fmtDate=t=>t?new Date(t).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}):'';
+function startNewList(name){
+  state.stops=[];state.plan=null;state.activeDay=0;state.pendingAsk=null;state.finAsked=false;
+  state.listId='r'+Date.now();state.listName=name||('Rota '+new Date().toLocaleDateString('tr-TR'));state.listCreated=Date.now();
+}
+function ensureListMeta(){if(!state.listId&&state.stops.length){state.listId='r'+Date.now();state.listName=state.listName||'Rota '+new Date().toLocaleDateString('tr-TR');state.listCreated=state.listCreated||Date.now()}}
+function archiveCurrent(status,quiet){
+  if(!state.stops.length)return false;ensureListMeta();
+  const entry={id:state.listId,name:state.listName,created:state.listCreated,saved:Date.now(),status,
+    finished:status==='bitti'?Date.now():null,stops:state.stops,plan:state.plan,activeDay:state.activeDay||0};
+  state.lists=state.lists.filter(l=>l.id!==entry.id);state.lists.unshift(entry);
+  state.stops=[];state.plan=null;state.activeDay=0;state.pendingAsk=null;state.finAsked=false;state.listId=null;state.listName='';state.listCreated=0;
+  if(geoRun)geoRun.stop=true;state.geoAuto=false;
+  save();if(!quiet)toast(status==='bitti'?'Rota "Bitti" olarak kaydedildi':'Rota kaydedildi');return true;
+}
+function openList(id,reuse){
+  const e=state.lists.find(l=>l.id===id);if(!e)return;
+  if(state.stops.length)archiveCurrent('kayitli',true);
+  state.lists=state.lists.filter(l=>l.id!==id);
+  let stops=JSON.parse(JSON.stringify(e.stops)),plan=e.plan?JSON.parse(JSON.stringify(e.plan)):null;
+  if(reuse){stops.forEach(s=>{s.done=false;s.doneAt=null});
+    // a reused copy becomes a new route; the finished one stays in history
+    state.lists.unshift(e);state.listId='r'+Date.now();state.listName=e.name+' (tekrar)';state.listCreated=Date.now()}
+  else{state.listId=e.id;state.listName=e.name;state.listCreated=e.created}
+  state.stops=stops;state.plan=plan;state.activeDay=reuse?0:(e.activeDay||0);state.pendingAsk=null;state.finAsked=false;
+  state.uid=Math.max(state.uid,1+Math.max(0,...stops.map(s=>s.id)));
+  resolveApprox();save();go(state.plan?'drive':'plan');toast(`"${state.listName}" açıldı`);
+}
+function planAllDone(){const p=state.plan;if(!p||!p.days||!p.days.length)return false;
+  const m=new Map(state.stops.map(s=>[s.id,s]));let n=0;
+  for(const d of p.days)for(const id of d){const s=m.get(id);if(s){n++;if(!s.done)return false}}return n>0}
+function checkFinished(){
+  if(!planAllDone()){state.finAsked=false;return}
+  if(state.finAsked)return;state.finAsked=true;save();
+  const n=state.stops.filter(s=>s.done).length;
+  $('#finMsg').textContent=`"${state.listName||'Bu rota'}" için ${n} durağın hepsi tamamlandı. Kaydedersen Rotalar sekmesinde "Bitti" olarak durur; istersen sonra tekrar kullanabilirsin.`;
+  $('#fin').hidden=false;$('#finSave').focus({preventScroll:true});
+}
+$('#finSave').onclick=()=>{$('#fin').hidden=true;archiveCurrent('bitti');go('lists')};
+$('#finLater').onclick=()=>{$('#fin').hidden=true};
+$('#impNew').onclick=()=>{$('#imp').hidden=true;const p=pendingImport;pendingImport=null;if(p)doImport(p.sheets,p.name,true)};
+$('#impAdd').onclick=()=>{$('#imp').hidden=true;const p=pendingImport;pendingImport=null;if(p){ensureListMeta();doImport(p.sheets,p.name,false)}};
+$('#impCancel').onclick=()=>{$('#imp').hidden=true;pendingImport=null};
+
+let delArm=null;
+let mergeSel=null; // null = not selecting; Set of ids ('cur' = open route)
+function renderLists(){
+  const el=$('#listsBody');let h='';
+  const pick=id=>mergeSel?`<label class="pick"><input type="checkbox" data-pick="${id}" ${mergeSel.has(id)?'checked':''}> Birleştirmeye ekle</label>`:'';
+  const total=state.lists.length+(state.stops.length?1:0);
+  if(total>=2&&!mergeSel)h+=`<div class="row" style="margin-top:0"><button class="ghost small" data-lact="mstart">Rotaları birleştir</button></div>`;
+  if(mergeSel)h+=`<div class="note">Birleştirmek istediğin rotaları işaretle. Seçilenlerin tüm noktaları tek bir yeni rotada toplanır; eski rotalar silinmez.</div>`;
+  if(state.stops.length){ensureListMeta();const dn=state.stops.filter(s=>s.done).length;
+    h+=`<div class="lcard cur">${pick('cur')}<div class="top"><div><span class="hint">Şu an açık</span><h3>${esc(state.listName)}</h3>
+      <span class="hint">${state.stops.length} nokta · ${dn} tamamlandı${state.listCreated?' · '+fmtDate(state.listCreated):''}</span></div></div>
+      <div class="acts"><button class="small" data-lact="finish">Bitti olarak kaydet</button><button class="ghost small" data-lact="park">Kaydet, yeni rota başlat</button></div></div>`}
+  else h+=`<div class="note">Şu an açık rota yok. Yeni rota için <button class="linkish" style="color:var(--route);font-weight:700" data-go="points">Noktalar</button> sekmesinden Excel yükle ya da aşağıdan kayıtlı bir rotayı aç.</div>`;
+  const wait=state.lists.filter(l=>l.status!=='bitti'),done=state.lists.filter(l=>l.status==='bitti');
+  const card=l=>{const n=l.stops.length,dn=l.stops.filter(s=>s.done).length,days=l.plan&&l.plan.days?l.plan.days.length:0;
+    return `<div class="lcard">${pick(l.id)}<div class="top"><div><h3>${esc(l.name)}</h3><span class="hint">${n} nokta${days?' · '+days+' gün':''} · ${dn}/${n} tamam<br>${l.status==='bitti'?'Bitiş: '+fmtDate(l.finished):'Kayıt: '+fmtDate(l.saved)}</span></div>
+      <span class="chip ${l.status==='bitti'?'c-done':'c-wait'}">${l.status==='bitti'?'Bitti':'Gidilecek'}</span></div>
+      <div class="acts">${l.status==='bitti'?`<button class="small" data-lopen="${l.id}" data-reuse="1">Tekrar kullan</button>`:`<button class="small" data-lopen="${l.id}">Aç ve devam et</button>`}
+      <button class="ghost small" data-lexp="${l.id}">Excel</button><button class="ghost small" data-ldel="${l.id}">${delArm===l.id?'Emin misin? Tekrar bas':'Sil'}</button></div></div>`};
+  h+=`<h3>Gidilecek kayıtlı rotalar</h3>`+(wait.length?wait.map(card).join(''):'<p class="hint">Henüz yok. Yeni bir dosya yüklediğinde açık liste buraya kaydedilir.</p>');
+  h+=`<h3>Biten rotalar</h3>`+(done.length?done.map(card).join(''):'<p class="hint">Henüz biten rota yok.</p>');
+  if(mergeSel)h+=`<div class="mergebar"><span>${mergeSel.size} rota seçildi</span><span style="display:flex;gap:6px"><button class="ghost small" data-lact="mcancel">Vazgeç</button><button class="small" data-lact="mgo" ${mergeSel.size<2?'disabled':''}>Birleştir</button></span></div>`;
+  el.innerHTML=h;
+}
+$('#listsBody').addEventListener('change',e=>{const id=e.target.dataset.pick;if(!id||!mergeSel)return;
+  if(e.target.checked)mergeSel.add(id);else mergeSel.delete(id);renderLists()});
+function mergeRoutes(ids){
+  const srcs=[];
+  for(const id of ids){if(id==='cur'){if(state.stops.length)srcs.push({name:state.listName||'Açık rota',stops:state.stops})}
+    else{const l=state.lists.find(x=>x.id===id);if(l)srcs.push({name:l.name,stops:l.stops})}}
+  if(srcs.length<2)return;
+  const copies=srcs.flatMap(x=>JSON.parse(JSON.stringify(x.stops)));
+  const name='Birleşik: '+srcs.map(x=>x.name).join(' + ');
+  if(state.stops.length)archiveCurrent('kayitli',true);
+  startNewList(name.length>70?name.slice(0,67)+'…':name);
+  const seen=new Set();
+  for(const c of copies){const k=norm(c.name)+'|'+norm(c.addr)+'|'+(c.prec==='exact'?(+c.lat).toFixed(4)+','+(+c.lng).toFixed(4):'');
+    if(seen.has(k))continue;seen.add(k);c.id=state.uid++;state.stops.push(c)}
+  state.listTouched=Date.now();resolveApprox();save();mergeSel=null;
+  toast(`${srcs.length} rota birleşti: ${state.stops.length} nokta. Şimdi planı hesapla.`);go('plan');
+}
+$('#listsBody').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
+  if(d.lact==='mstart'){mergeSel=new Set();renderLists();return}
+  if(d.lact==='mcancel'){mergeSel=null;renderLists();return}
+  if(d.lact==='mgo'){mergeRoutes([...mergeSel]);return}
+  if(d.lact==='finish'){archiveCurrent('bitti');renderLists();updateNavBadges()}
+  if(d.lact==='park'){archiveCurrent('kayitli');renderLists();updateNavBadges();go('points')}
+  if(d.lopen)openList(d.lopen,d.reuse==='1');
+  if(d.lexp){const l=state.lists.find(x=>x.id===d.lexp);if(l)exportList(l.stops,l.plan,l.name)}
+  if(d.ldel){if(delArm!==d.ldel){delArm=d.ldel;renderLists();setTimeout(()=>{if(delArm===d.ldel){delArm=null;if(view==='lists')renderLists()}},3500);return}
+    delArm=null;state.lists=state.lists.filter(x=>x.id!==d.ldel);save();renderLists();updateNavBadges();toast('Rota silindi')}
+});
 
 // ================= tabs =================
 let view='drive';
-function go(v){view=v;document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);
+function go(v){if(v==='points'&&view!=='points')addMode=defaultAddMode();if(v!=='lists')mergeSel=null;view=v;document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   renderView();window.scrollTo(0,0)}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)go(b.dataset.v)});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b){e.preventDefault();go(b.dataset.go)}});
-function renderView(){updateNavBadges();if(view==='drive')renderDrive();if(view==='plan')renderPlan();if(view==='points')renderList();if(view==='done')renderDone()}
-function updateNavBadges(){const n=state.stops.filter(s=>s.done).length;$('#navDone').textContent=n?n:'';$('#navPts').textContent=state.stops.length||''}
+function renderView(){updateNavBadges();if(view==='drive')renderDrive();if(view==='plan')renderPlan();if(view==='points')renderList();if(view==='done')renderDone();if(view==='lists')renderLists()}
+function updateNavBadges(){const n=state.stops.filter(s=>s.done).length;$('#navDone').textContent=n?n:'';$('#navPts').textContent=state.stops.length||'';const w=state.lists.filter(l=>l.status!=='bitti').length;$('#navLists').textContent=w||''}
 
 // ================= points list =================
 function counts(){const c={all:state.stops.length,exact:0,approx:0,none:0};
   for(const s of state.stops){if(s.prec==='exact')c.exact++;else if(s.prec==='none')c.none++;else c.approx++}return c}
 function renderList(){
+  renderMode();
   const c=counts();
   $('#emptyPts').hidden=!!c.all;
   $('#counts').innerHTML=!c.all?'':[['all','Tümü'],['exact','Kesin konum'],['approx','Yaklaşık konum'],['none','Konumu yok']]
@@ -784,7 +968,8 @@ $('#dayBody').addEventListener('change',e=>{const id=e.target.dataset.pdone;if(!
 function renderDrive(){
   const p=state.plan,el=$('#driveBody');
   if(!p||!p.days||!p.days.length){
-    el.innerHTML=`<div class="empty"><h2>Henüz plan yok</h2><p class="hint">1. Noktalar sekmesinden Excel'ini yükle.<br>2. Plan sekmesinde rotayı hesapla.<br>3. Buraya dön, durak durak ilerle.</p>
+    const nw=state.lists.filter(l=>l.status!=='bitti').length;
+    el.innerHTML=`<div class="empty"><h2>Henüz plan yok</h2>${nw?`<p class="hint">${nw} kayıtlı rotan var. <button class="linkish" style="color:var(--route);font-weight:700" data-go="lists">Rotalar'dan aç</button></p>`:''}<p class="hint">1. Noktalar sekmesinden Excel'ini yükle.<br>2. Plan sekmesinde rotayı hesapla.<br>3. Buraya dön, durak durak ilerle.</p>
       <div class="row" style="justify-content:center"><button data-go="${state.stops.length?'plan':'points'}">${state.stops.length?'Planı hesapla':'Excel yükle'}</button></div></div>`;return}
   let i=Math.min(state.activeDay||0,p.days.length-1);
   const d=dayStops(i),dn=d.filter(s=>s.done).length,cur=d.find(s=>!s.done),rest=d.filter(s=>!s.done&&s!==cur);
@@ -862,24 +1047,25 @@ let downloads=null;
 const STANDALONE=!(window.claude&&typeof window.claude.use==='function');
 async function initDownloads(){if(STANDALONE){$('#export').hidden=false;return}
   try{downloads=await window.claude.use('downloads');$('#export').hidden=!downloads}catch(e){}}
-$('#export').onclick=async()=>{
+async function exportList(stops,plan,name){
   if(typeof XLSX==='undefined'){toast('Excel modülü yüklenemedi; internet bağlantısını kontrol et.');return}
-  const p=state.plan,rows=[['Gün','Sıra','Ad','Adres','Enlem','Boylam','Konum','Önceki noktadan km','Durum','Tamamlanma','Google Maps']];
+  const m=new Map(stops.map(x=>[x.id,x])),rows=[['Gün','Sıra','Ad','Adres','Enlem','Boylam','Konum','Önceki noktadan km','Durum','Tamamlanma','Google Maps']];
   const fmt=t=>t?new Date(t).toLocaleString('tr-TR'):'';
-  if(p)p.days.forEach((_,i)=>{let prev=p.base;dayStops(i).forEach((s,j)=>{const q=pos(s);
-    rows.push([i+1,j+1,s.name,s.addr,s.prec==='exact'?s.lat:'',s.prec==='exact'?s.lng:'',PREC[s.prec],+hav(prev,q).toFixed(2),s.done?'Tamamlandı':'',fmt(s.doneAt),searchUrl(s)]);prev=q})});
+  if(plan&&plan.days)plan.days.forEach((ids,i)=>{let prev=plan.base;ids.map(id=>m.get(id)).filter(x=>x&&pos(x)).forEach((x,j)=>{const q=pos(x);
+    rows.push([i+1,j+1,x.name,x.addr,x.prec==='exact'?x.lat:'',x.prec==='exact'?x.lng:'',PREC[x.prec],+hav(prev,q).toFixed(2),x.done?'Tamamlandı':'',fmt(x.doneAt),searchUrl(x)]);prev=q})});
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Plan');
-  const all=[['Ad','Adres','Mahalle','İlçe','İl','Enlem','Boylam','Konum','Durum','Tamamlanma']].concat(state.stops.map(s=>[s.name,s.addr,s.mah,s.ilce,s.il,s.prec==='exact'?s.lat:'',s.prec==='exact'?s.lng:'',PREC[s.prec],s.done?'Tamamlandı':'',fmt(s.doneAt)]));
+  const all=[['Ad','Adres','Mahalle','İlçe','İl','Enlem','Boylam','Konum','Durum','Tamamlanma']].concat(stops.map(x=>[x.name,x.addr,x.mah,x.ilce,x.il,x.prec==='exact'?x.lat:'',x.prec==='exact'?x.lng:'',PREC[x.prec],x.done?'Tamamlandı':'',fmt(x.doneAt)]));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(all),'Tüm noktalar');
-  const fname='denetim-plani.xlsx';
+  const fname=((name||'denetim-plani').replace(/[\\/:*?"<>|]+/g,'').trim()||'denetim-plani')+'.xlsx';
   if(window.AndroidBridge&&window.AndroidBridge.saveFile){const r=String(window.AndroidBridge.saveFile(fname,XLSX.write(wb,{type:'base64',bookType:'xlsx'})));
     toast(r.startsWith('ok')?'İndirilenler klasörüne kaydedildi':'Kaydedilemedi');return}
   const buf=XLSX.write(wb,{type:'array',bookType:'xlsx'});
   if(!downloads){const url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);return}
-  try{await downloads.save({filename:'denetim-plani.xlsx',data:new Blob([buf])});toast('Excel kaydedildi')}
+  try{await downloads.save({filename:fname,data:new Blob([buf])});toast('Excel kaydedildi')}
   catch(e){if(e&&e.code==='declined')return;toast('Excel kaydedilemedi')}
-};
+}
+$('#export').onclick=()=>exportList(state.stops,state.plan,state.listName);
 
 // ================= address → map (OpenStreetMap / Nominatim) =================
 const MAHK=new Set(['mah','mahallesi','mh','mahalle','mahalesi']);
@@ -1007,6 +1193,7 @@ $('#findAddr').onclick=async()=>{
   const c=best?{lat:best.lat,lng:best.lng,zoom:ZOOM[best.lvl]}:fallbackCenter(tmp);
   openEditor({...c,msg:best?MSG[best.lvl]:(err?'Arama yapılamadı (internet?). Haritada doğru yere dokun.':'Adres haritada bulunamadı. Yakınlaşıp doğru yere dokun.'),
     onSave:(la,ln,moved)=>{
+      prepareAdd('');
       if(!addStop({name,addr,lat:la,lng:ln})){toast('Bu nokta zaten listede.');return}
       const s=state.stops[state.stops.length-1];s.gl=moved||!best?'elle':best.lvl;s.gtried=true;
       resolveApprox();save();renderList();updateNavBadges();$('#newAddr').value='';$('#newName').value='';
