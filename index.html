@@ -590,7 +590,28 @@ function doImport(sheets,name,fresh){
   afterImport(added);
 }
 // Each Excel file becomes its own route, built from zero: nothing is mixed with the open route.
-function newRouteFromExcel(sheets,name){
+// Only rows you can see in Excel are taken: filtered/hidden rows and hidden sheets are skipped
+function readVisible(wb){
+  const meta=(wb.Workbook&&wb.Workbook.Sheets)||[],nonEmpty=r=>r.some(c=>String(c??'').trim()!=='');
+  const out={visible:[],all:[],hiddenRows:0,hiddenSheets:0,hiddenSheetRows:0};
+  wb.SheetNames.forEach((n,si)=>{
+    if(n==='Konumsuz'||(n==='Tüm noktalar'&&wb.SheetNames.length>1))return;
+    const ws=wb.Sheets[n];if(!ws||!ws['!ref'])return;
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',blankrows:true});
+    const off=XLSX.utils.decode_range(ws['!ref']).s.r,rp=ws['!rows']||[];
+    out.all.push(rows);
+    const m=meta.find(x=>x.name===n)||meta[si]||{};
+    if(m.Hidden){const k=rows.filter(nonEmpty).length;if(k){out.hiddenSheets++;out.hiddenSheetRows+=Math.max(0,k-1)}return}
+    const vis=[];rows.forEach((r,i)=>{const h=rp[off+i]&&rp[off+i].hidden;if(h){if(nonEmpty(r))out.hiddenRows++}else vis.push(r)});
+    out.visible.push(vis);
+  });
+  return out;
+}
+let lastImport=null;
+$('#modeNote').addEventListener('click',e=>{if(!e.target.dataset.addHidden||!lastImport||lastImport.id!==state.listId)return;
+  let added=0;for(const rows of lastImport.all)added+=fromRows(rows).added;lastImport.hiddenRows=0;lastImport.hiddenSheets=0;
+  state.plan=null;resolveApprox();save();renderAll();toast(`Gizli satırlardan ${added} nokta eklendi`);if(state.stops.some(needsGeo))setTimeout(startGeocode,300)});
+function newRouteFromExcel(sheets,name,sh){
   const old=state.stops.length?state.listName:'';
   if(state.stops.length)archiveCurrent('kayitli',true);
   startNewList(name);justCreated=state.listId;addMode='new';state.listTouched=Date.now();
@@ -600,7 +621,9 @@ function newRouteFromExcel(sheets,name){
   state.lists=state.lists.filter(l=>!(l.stops.length===state.stops.length&&sameStops(l.stops,state.stops)&&!l.stops.some(x=>x.done)));
   const dropped=before-state.lists.length;
   resolveApprox();state.plan=null;save();renderAll();
-  toast(`"${name}" yeni rota olarak açıldı: ${added} nokta`);
+  lastImport=sh?{id:state.listId,all:sh.all,hiddenRows:sh.hiddenRows,hiddenSheets:sh.hiddenSheets,hiddenSheetRows:sh.hiddenSheetRows}:null;
+  renderAll();
+  toast(`"${name}" yeni rota olarak açıldı: ${added} nokta`+(sh&&(sh.hiddenRows+sh.hiddenSheetRows)?` (${sh.hiddenRows+sh.hiddenSheetRows} gizli satır alınmadı)`:''));
   if(old)setTimeout(()=>toast(dropped?`Aynı dosyanın eski kopyası kaldırıldı`:`Önceki rota "${old}" Rotalar'a kaydedildi`),2700);
   if(state.stops.some(needsGeo))setTimeout(startGeocode,300);
 }
@@ -619,10 +642,10 @@ function handleFile(f){
   if(!f)return;
   if(typeof XLSX==='undefined'){toast('Excel okuyucu yüklenemedi; satırları kopyalayıp "Elle yapıştır" alanına yapıştır.');return}
   const r=new FileReader();
-  r.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
-      const sheets=wb.SheetNames.filter(n=>n!=='Konumsuz'&&n!=='Tüm noktalar'||wb.SheetNames.length===1).map(n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}));
+  r.onload=ev=>{try{const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellStyles:true});
+      const sh=readVisible(wb),sheets=sh.visible;
       const name=String(f.name||'Liste').replace(/\.(xlsx|xls|csv)$/i,'');
-      newRouteFromExcel(sheets,name)}catch(err){toast('Dosya okunamadı: '+err.message)}};
+      newRouteFromExcel(sheets,name,sh)}catch(err){toast('Dosya okunamadı: '+err.message)}};
   r.readAsArrayBuffer(f);
 }
 $('#file').addEventListener('change',e=>{handleFile(e.target.files[0]);e.target.value=''});
@@ -737,7 +760,7 @@ function renderMode(){
   const isNew=addMode==='new'&&has;
   $('#curWrap').hidden=isNew;$('#clear').hidden=isNew||!has;$('#geoBar').hidden=isNew&&!fresh;
   let note='';
-  if(isNew&&fresh)note=`<div class="note"><strong>✓ Yeni rota oluşturuldu: ${esc(state.listName)}</strong> · ${state.stops.length} nokta<br><span class="hint">Eklemeye devam edersen bu rotaya eklenir. Önceki rota Rotalar'da duruyor.</span>
+  if(isNew&&fresh)note=`<div class="note"><strong>✓ Yeni rota oluşturuldu: ${esc(state.listName)}</strong> · ${state.stops.length} nokta<br><span class="hint">Eklemeye devam edersen bu rotaya eklenir. Önceki rota Rotalar'da duruyor.</span>${lastImport&&lastImport.id===state.listId&&(lastImport.hiddenRows||lastImport.hiddenSheets)?`<br><span class="hint">Excel'de gizli ya da filtreyle saklanmış <strong>${lastImport.hiddenRows+lastImport.hiddenSheetRows} satır</strong> alınmadı; sadece görünen satırlar rotaya girdi.</span> <button class="linkish" style="color:var(--route);font-size:.88rem" data-add-hidden="1">Gizli satırları da ekle</button>`:''}
       <div class="row"><button class="small" data-go="plan">Planı hesapla</button><button class="ghost small" data-mode-show="1">Noktaları göster</button></div></div>`;
   else if(isNew)note=`<div class="note">Yeni bir rota oluşturuyorsun. Yüklediğin her Excel <strong>ayrı, yeni bir rota</strong> olur; eski rotayla karışmaz.<br><span class="hint">Açık rota "<strong>${esc(state.listName||'Adsız rota')}</strong>" (${state.stops.length} nokta) silinmez, Rotalar'a kaydedilir. Ona eklemek istersen üstten "Açık rotaya ekle"yi seç.</span></div>`;
   else if(has)note=`<p class="hint" style="margin:8px 0 0">Yazdığın adresler şu rotaya eklenir: <strong>${esc(state.listName||'Adsız rota')}</strong>. Excel yüklersen her zaman ayrı yeni rota olur.</p>`;
@@ -805,7 +828,12 @@ $('#impAdd').onclick=()=>{$('#imp').hidden=true;const p=pendingImport;pendingImp
 $('#impCancel').onclick=()=>{$('#imp').hidden=true;pendingImport=null};
 
 let delArm=null;
+let renameId=null;
 let mergeSel=null; // null = not selecting; Set of ids ('cur' = open route)
+const nameBox=(id,name)=>renameId===id?`<div class="row" style="margin:4px 0"><input type="text" data-rnin="${id}" value="${esc(name)}" style="flex:1;min-width:160px"><button class="small" data-rnsave="${id}">Kaydet</button><button class="ghost small" data-rncancel="1">Vazgeç</button></div>`:`<h3>${esc(name)}</h3>`;
+function saveRename(id){const inp=document.querySelector(`[data-rnin="${id}"]`);const v=inp?inp.value.trim():'';
+  if(v){if(id==='cur')state.listName=v;else{const l=state.lists.find(x=>x.id===id);if(l)l.name=v}save();toast('Rota adı değiştirildi')}
+  renameId=null;renderLists()}
 function renderLists(){
   const el=$('#listsBody');let h='';
   const pick=id=>mergeSel?`<label class="pick"><input type="checkbox" data-pick="${id}" ${mergeSel.has(id)?'checked':''}> Birleştirmeye ekle</label>`:'';
@@ -813,21 +841,22 @@ function renderLists(){
   if(total>=2&&!mergeSel)h+=`<div class="row" style="margin-top:0"><button class="ghost small" data-lact="mstart">Rotaları birleştir</button></div>`;
   if(mergeSel)h+=`<div class="note">Birleştirmek istediğin rotaları işaretle. Seçilenlerin tüm noktaları tek bir yeni rotada toplanır; eski rotalar silinmez.</div>`;
   if(state.stops.length){ensureListMeta();const dn=state.stops.filter(s=>s.done).length;
-    h+=`<div class="lcard cur">${pick('cur')}<div class="top"><div><span class="hint">Şu an açık</span><h3>${esc(state.listName)}</h3>
+    h+=`<div class="lcard cur">${pick('cur')}<div class="top"><div><span class="hint">Şu an açık</span>${nameBox('cur',state.listName)}
       <span class="hint">${state.stops.length} nokta · ${dn} tamamlandı${state.listCreated?' · '+fmtDate(state.listCreated):''}</span></div></div>
-      <div class="acts"><button class="small" data-lact="finish">Bitti olarak kaydet</button><button class="ghost small" data-lact="park">Kaydet, yeni rota başlat</button></div></div>`}
+      <div class="acts"><button class="small" data-lact="finish">Bitti olarak kaydet</button><button class="ghost small" data-lact="park">Kaydet, yeni rota başlat</button><button class="ghost small" data-rn="cur">Adını değiştir</button></div></div>`}
   else h+=`<div class="note">Şu an açık rota yok. Yeni rota için <button class="linkish" style="color:var(--route);font-weight:700" data-go="points">Noktalar</button> sekmesinden Excel yükle ya da aşağıdan kayıtlı bir rotayı aç.</div>`;
   const wait=state.lists.filter(l=>l.status!=='bitti'),done=state.lists.filter(l=>l.status==='bitti');
   const card=l=>{const n=l.stops.length,dn=l.stops.filter(s=>s.done).length,days=l.plan&&l.plan.days?l.plan.days.length:0;
-    return `<div class="lcard">${pick(l.id)}<div class="top"><div><h3>${esc(l.name)}</h3><span class="hint">${n} nokta${days?' · '+days+' gün':''} · ${dn}/${n} tamam<br>${l.status==='bitti'?'Bitiş: '+fmtDate(l.finished):'Kayıt: '+fmtDate(l.saved)}</span></div>
+    return `<div class="lcard">${pick(l.id)}<div class="top"><div>${nameBox(l.id,l.name)}<span class="hint">${n} nokta${days?' · '+days+' gün':''} · ${dn}/${n} tamam<br>${l.status==='bitti'?'Bitiş: '+fmtDate(l.finished):'Kayıt: '+fmtDate(l.saved)}</span></div>
       <span class="chip ${l.status==='bitti'?'c-done':'c-wait'}">${l.status==='bitti'?'Bitti':'Gidilecek'}</span></div>
       <div class="acts">${l.status==='bitti'?`<button class="small" data-lopen="${l.id}" data-reuse="1">Tekrar kullan</button>`:`<button class="small" data-lopen="${l.id}">Aç ve devam et</button>`}
-      <button class="ghost small" data-lexp="${l.id}">Excel</button><button class="ghost small" data-ldel="${l.id}">${delArm===l.id?'Emin misin? Tekrar bas':'Sil'}</button></div></div>`};
+      <button class="ghost small" data-lexp="${l.id}">Excel</button><button class="ghost small" data-rn="${l.id}">Adını değiştir</button><button class="ghost small" data-ldel="${l.id}">${delArm===l.id?'Emin misin? Tekrar bas':'Sil'}</button></div></div>`};
   h+=`<h3>Gidilecek kayıtlı rotalar</h3>`+(wait.length?wait.map(card).join(''):'<p class="hint">Henüz yok. Yeni bir dosya yüklediğinde açık liste buraya kaydedilir.</p>');
   h+=`<h3>Biten rotalar</h3>`+(done.length?done.map(card).join(''):'<p class="hint">Henüz biten rota yok.</p>');
   if(mergeSel)h+=`<div class="mergebar"><span>${mergeSel.size} rota seçildi</span><span style="display:flex;gap:6px"><button class="ghost small" data-lact="mcancel">Vazgeç</button><button class="small" data-lact="mgo" ${mergeSel.size<2?'disabled':''}>Birleştir</button></span></div>`;
   el.innerHTML=h;
 }
+$('#listsBody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.rnin){e.preventDefault();saveRename(e.target.dataset.rnin)}});
 $('#listsBody').addEventListener('change',e=>{const id=e.target.dataset.pick;if(!id||!mergeSel)return;
   if(e.target.checked)mergeSel.add(id);else mergeSel.delete(id);renderLists()});
 function mergeRoutes(ids){
@@ -846,6 +875,9 @@ function mergeRoutes(ids){
   toast(`${srcs.length} rota birleşti: ${state.stops.length} nokta. Şimdi planı hesapla.`);go('plan');
 }
 $('#listsBody').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
+  if(d.rn){renameId=d.rn;renderLists();const i=document.querySelector(`[data-rnin="${d.rn}"]`);if(i){i.focus();i.select()}return}
+  if(d.rnsave){saveRename(d.rnsave);return}
+  if(d.rncancel){renameId=null;renderLists();return}
   if(d.lact==='mstart'){mergeSel=new Set();renderLists();return}
   if(d.lact==='mcancel'){mergeSel=null;renderLists();return}
   if(d.lact==='mgo'){mergeRoutes([...mergeSel]);return}
@@ -859,7 +891,7 @@ $('#listsBody').addEventListener('click',e=>{const b=e.target.closest('button');
 
 // ================= tabs =================
 let view='drive';
-function go(v){if(v==='points'&&view!=='points'){addMode=defaultAddMode();justCreated=null}if(v!=='lists')mergeSel=null;view=v;document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);
+function go(v){if(v!=='lists')renameId=null;if(v==='points'&&view!=='points'){addMode=defaultAddMode();justCreated=null}if(v!=='lists')mergeSel=null;view=v;document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   renderView();window.scrollTo(0,0)}
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)go(b.dataset.v)});
